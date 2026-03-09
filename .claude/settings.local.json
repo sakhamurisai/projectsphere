@@ -4,7 +4,8 @@
       "Bash(tree /F \"C:\\\\Users\\\\gagan\\\\Desktop\\\\projectsphere\\\\src\")",
       "Bash(xargs:*)",
       "Bash(npm install:*)",
-      "Bash(npx shadcn@latest add:*)"
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
