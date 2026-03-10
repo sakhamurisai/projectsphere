@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { getItem, putItem, updateItem, deleteItem, queryItems, queryByIndex, batchWriteItems } from "../operations";
+import { TABLES } from "../client";
 import { getUserById } from "./user";
 import type {
   Workspace,
@@ -11,6 +12,10 @@ import type {
   WorkspaceMemberDBItem,
   WorkspaceWithRole
 } from "@/types/workspace";
+
+// Workspace metadata and members are stored in the same WORKSPACES table,
+// differentiated by SK (METADATA vs MEMBER#userId)
+const T = TABLES.WORKSPACES;
 
 export function createWorkspacePK(workspaceId: string): string {
   return `WORKSPACE#${workspaceId}`;
@@ -78,20 +83,14 @@ export async function createWorkspace(input: WorkspaceCreateInput, ownerId: stri
     joinedAt: now,
   };
 
-  await batchWriteItems([{ put: workspaceItem }, { put: memberItem }]);
+  await batchWriteItems(T, [{ put: workspaceItem }, { put: memberItem }]);
 
   return dbItemToWorkspace(workspaceItem);
 }
 
 export async function getWorkspaceById(workspaceId: string): Promise<Workspace | null> {
-  const item = await getItem<WorkspaceDBItem>(createWorkspacePK(workspaceId), createWorkspaceSK());
+  const item = await getItem<WorkspaceDBItem>(T, createWorkspacePK(workspaceId), createWorkspaceSK());
   return item ? dbItemToWorkspace(item) : null;
-}
-
-export async function getWorkspaceBySlug(slug: string): Promise<Workspace | null> {
-  // Note: In production, you might want a GSI for slug lookups
-  // For now, this is a simplified implementation
-  return null;
 }
 
 export async function updateWorkspace(workspaceId: string, input: WorkspaceUpdateInput): Promise<Workspace | null> {
@@ -103,27 +102,26 @@ export async function updateWorkspace(workspaceId: string, input: WorkspaceUpdat
     updatedAt: new Date().toISOString(),
   };
 
-  await updateItem(createWorkspacePK(workspaceId), createWorkspaceSK(), updates);
+  await updateItem(T, createWorkspacePK(workspaceId), createWorkspaceSK(), updates);
 
   return getWorkspaceById(workspaceId);
 }
 
 export async function deleteWorkspace(workspaceId: string): Promise<void> {
-  // Get all items with this workspace PK (metadata + members + projects)
-  const { items } = await queryItems<{ PK: string; SK: string }>(createWorkspacePK(workspaceId));
+  const { items } = await queryItems<{ PK: string; SK: string }>(T, createWorkspacePK(workspaceId));
 
-  // Delete all related items
   const deleteOps = items.map((item) => ({
     delete: { pk: item.PK, sk: item.SK },
   }));
 
   if (deleteOps.length > 0) {
-    await batchWriteItems(deleteOps);
+    await batchWriteItems(T, deleteOps);
   }
 }
 
 export async function getUserWorkspaces(userId: string): Promise<WorkspaceWithRole[]> {
   const { items: memberItems } = await queryByIndex<WorkspaceMemberDBItem>(
+    T,
     "GSI1",
     "GSI1PK",
     createUserWorkspaceGSI(userId)
@@ -145,7 +143,7 @@ export async function getUserWorkspaces(userId: string): Promise<WorkspaceWithRo
 }
 
 export async function getWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]> {
-  const { items } = await queryItems<WorkspaceMemberDBItem>(createWorkspacePK(workspaceId), "MEMBER#");
+  const { items } = await queryItems<WorkspaceMemberDBItem>(T, createWorkspacePK(workspaceId), "MEMBER#");
 
   const members: WorkspaceMember[] = [];
 
@@ -167,7 +165,7 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<Workspac
 }
 
 export async function getWorkspaceMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null> {
-  const item = await getItem<WorkspaceMemberDBItem>(createWorkspacePK(workspaceId), createMemberSK(userId));
+  const item = await getItem<WorkspaceMemberDBItem>(T, createWorkspacePK(workspaceId), createMemberSK(userId));
   if (!item) return null;
 
   const member = dbItemToMember(item);
@@ -202,7 +200,7 @@ export async function addWorkspaceMember(
     joinedAt: now,
   };
 
-  await putItem(item);
+  await putItem(T, item);
 
   return dbItemToMember(item);
 }
@@ -215,13 +213,13 @@ export async function updateWorkspaceMemberRole(
   const existingMember = await getWorkspaceMember(workspaceId, userId);
   if (!existingMember) return null;
 
-  await updateItem(createWorkspacePK(workspaceId), createMemberSK(userId), { role });
+  await updateItem(T, createWorkspacePK(workspaceId), createMemberSK(userId), { role });
 
   return getWorkspaceMember(workspaceId, userId);
 }
 
 export async function removeWorkspaceMember(workspaceId: string, userId: string): Promise<void> {
-  await deleteItem(createWorkspacePK(workspaceId), createMemberSK(userId));
+  await deleteItem(T, createWorkspacePK(workspaceId), createMemberSK(userId));
 }
 
 export async function isWorkspaceMember(workspaceId: string, userId: string): Promise<boolean> {

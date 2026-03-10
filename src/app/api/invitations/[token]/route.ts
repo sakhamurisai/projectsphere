@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getUserByEmail } from "@/lib/db/entities/user";
+import { getUserById } from "@/lib/db/entities/user";
 import { addWorkspaceMember, getUserWorkspaceRole } from "@/lib/db/entities/workspace";
 import { getInvitationByToken, acceptInvitation } from "@/lib/db/entities/invitation";
 import { successResponse, errorResponse } from "@/lib/api/response";
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const authUser = await getCurrentUser();
     if (!authUser) throw new UnauthorizedError();
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) throw new NotFoundError("User not found");
 
     const invitation = await getInvitationByToken(token);

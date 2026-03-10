@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { getItem, putItem, updateItem, deleteItem, queryItems, queryByIndex, batchWriteItems } from "../operations";
+import { TABLES } from "../client";
 import { getUserById } from "./user";
 import type {
   Project,
@@ -10,6 +11,10 @@ import type {
   ProjectDBItem,
   ProjectMemberDBItem
 } from "@/types/project";
+
+// Project metadata and members are stored in the same PROJECTS table,
+// differentiated by PK/SK patterns
+const T = TABLES.PROJECTS;
 
 export function createWorkspacePK(workspaceId: string): string {
   return `WORKSPACE#${workspaceId}`;
@@ -91,13 +96,14 @@ export async function createProject(
     joinedAt: now,
   };
 
-  await batchWriteItems([{ put: projectItem }, { put: memberItem }]);
+  await batchWriteItems(T, [{ put: projectItem }, { put: memberItem }]);
 
   return dbItemToProject(projectItem);
 }
 
 export async function getProjectById(projectId: string): Promise<Project | null> {
   const { items } = await queryByIndex<ProjectDBItem>(
+    T,
     "GSI1",
     "GSI1PK",
     createProjectPK(projectId),
@@ -109,7 +115,7 @@ export async function getProjectById(projectId: string): Promise<Project | null>
 }
 
 export async function getWorkspaceProjects(workspaceId: string): Promise<Project[]> {
-  const { items } = await queryItems<ProjectDBItem>(createWorkspacePK(workspaceId), "PROJECT#");
+  const { items } = await queryItems<ProjectDBItem>(T, createWorkspacePK(workspaceId), "PROJECT#");
 
   return items.map(dbItemToProject);
 }
@@ -124,6 +130,7 @@ export async function updateProject(projectId: string, input: ProjectUpdateInput
   };
 
   await updateItem(
+    T,
     createWorkspacePK(existingProject.workspaceId),
     createProjectSK(projectId),
     updates
@@ -136,17 +143,13 @@ export async function deleteProject(projectId: string): Promise<void> {
   const project = await getProjectById(projectId);
   if (!project) return;
 
-  // Delete project metadata
-  await deleteItem(createWorkspacePK(project.workspaceId), createProjectSK(projectId));
+  await deleteItem(T, createWorkspacePK(project.workspaceId), createProjectSK(projectId));
 
-  // Delete project members
-  const { items: members } = await queryItems<{ PK: string; SK: string }>(createProjectPK(projectId), "MEMBER#");
+  const { items: members } = await queryItems<{ PK: string; SK: string }>(T, createProjectPK(projectId), "MEMBER#");
 
   if (members.length > 0) {
-    await batchWriteItems(members.map((m) => ({ delete: { pk: m.PK, sk: m.SK } })));
+    await batchWriteItems(T, members.map((m) => ({ delete: { pk: m.PK, sk: m.SK } })));
   }
-
-  // Note: Tasks should also be deleted, but that's handled separately
 }
 
 export async function incrementProjectTaskCount(projectId: string): Promise<void> {
@@ -154,6 +157,7 @@ export async function incrementProjectTaskCount(projectId: string): Promise<void
   if (!project) return;
 
   await updateItem(
+    T,
     createWorkspacePK(project.workspaceId),
     createProjectSK(projectId),
     { taskCount: project.taskCount + 1 }
@@ -165,6 +169,7 @@ export async function decrementProjectTaskCount(projectId: string): Promise<void
   if (!project) return;
 
   await updateItem(
+    T,
     createWorkspacePK(project.workspaceId),
     createProjectSK(projectId),
     { taskCount: Math.max(0, project.taskCount - 1) }
@@ -172,7 +177,7 @@ export async function decrementProjectTaskCount(projectId: string): Promise<void
 }
 
 export async function getProjectMembers(projectId: string): Promise<ProjectMember[]> {
-  const { items } = await queryItems<ProjectMemberDBItem>(createProjectPK(projectId), "MEMBER#");
+  const { items } = await queryItems<ProjectMemberDBItem>(T, createProjectPK(projectId), "MEMBER#");
 
   const members: ProjectMember[] = [];
 
@@ -194,7 +199,7 @@ export async function getProjectMembers(projectId: string): Promise<ProjectMembe
 }
 
 export async function getProjectMember(projectId: string, userId: string): Promise<ProjectMember | null> {
-  const item = await getItem<ProjectMemberDBItem>(createProjectPK(projectId), createProjectMemberSK(userId));
+  const item = await getItem<ProjectMemberDBItem>(T, createProjectPK(projectId), createProjectMemberSK(userId));
   if (!item) return null;
 
   const member = dbItemToMember(item);
@@ -229,7 +234,7 @@ export async function addProjectMember(
     joinedAt: now,
   };
 
-  await putItem(item);
+  await putItem(T, item);
 
   return dbItemToMember(item);
 }
@@ -242,13 +247,13 @@ export async function updateProjectMemberRole(
   const existingMember = await getProjectMember(projectId, userId);
   if (!existingMember) return null;
 
-  await updateItem(createProjectPK(projectId), createProjectMemberSK(userId), { role });
+  await updateItem(T, createProjectPK(projectId), createProjectMemberSK(userId), { role });
 
   return getProjectMember(projectId, userId);
 }
 
 export async function removeProjectMember(projectId: string, userId: string): Promise<void> {
-  await deleteItem(createProjectPK(projectId), createProjectMemberSK(userId));
+  await deleteItem(T, createProjectPK(projectId), createProjectMemberSK(userId));
 }
 
 export async function isProjectMember(projectId: string, userId: string): Promise<boolean> {
@@ -263,6 +268,7 @@ export async function getUserProjectRole(projectId: string, userId: string): Pro
 
 export async function getUserProjects(userId: string): Promise<Project[]> {
   const { items: memberItems } = await queryByIndex<ProjectMemberDBItem>(
+    T,
     "GSI1",
     "GSI1PK",
     createUserProjectGSI(userId)

@@ -131,6 +131,7 @@ export default function BoardPage({ params }: BoardPageProps) {
         <TaskDetail
           taskId={selectedTaskId}
           open={taskDetailOpen}
+          workspaceId={workspaceId}
           onOpenChange={(open) => {
             setTaskDetailOpen(open);
             if (!open) setSelectedTaskId(null);
@@ -145,6 +146,7 @@ export default function BoardPage({ params }: BoardPageProps) {
         onSubmit={handleCreateTask}
         isSubmitting={isCreating}
         defaultStatus={defaultCreateStatus}
+        workspaceId={workspaceId}
       />
     </div>
   );

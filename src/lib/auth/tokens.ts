@@ -1,10 +1,11 @@
 import { jwtVerify, decodeJwt, createRemoteJWKSet } from "jose";
 import type { JWTPayload } from "@/types/auth";
 
-const COGNITO_REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
-const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "";
+const COGNITO_REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-2";
+const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "us-east-2_PLlWKITi8";
 
-const JWKS_URL = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`;
+const COGNITO_BASE = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${USER_POOL_ID}`;
+const JWKS_URL = `${COGNITO_BASE}/.well-known/jwks.json`;
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
@@ -18,7 +19,7 @@ function getJWKS() {
 export async function verifyToken(token: string): Promise<JWTPayload> {
   try {
     const { payload } = await jwtVerify(token, getJWKS(), {
-      issuer: `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${USER_POOL_ID}`,
+      issuer: COGNITO_BASE,
     });
 
     return payload as unknown as JWTPayload;

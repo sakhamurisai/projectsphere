@@ -29,10 +29,10 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSkeleton,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -222,9 +222,14 @@ function NavProjects({ workspaceId }: { workspaceId: string }) {
       <SidebarMenu>
         {isLoading ? (
           <>
-            <SidebarMenuItem><SidebarMenuSkeleton /></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuSkeleton /></SidebarMenuItem>
-            <SidebarMenuItem><SidebarMenuSkeleton /></SidebarMenuItem>
+            {[70, 55, 80].map((w) => (
+              <SidebarMenuItem key={w}>
+                <div className="flex items-center gap-2 px-2 h-8">
+                  <Skeleton className="size-2 rounded-full shrink-0" />
+                  <Skeleton className="h-4" style={{ width: `${w}%` }} />
+                </div>
+              </SidebarMenuItem>
+            ))}
           </>
         ) : projects.length === 0 ? (
           <SidebarMenuItem>
@@ -375,8 +380,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
         {/* Workspace switcher */}
         {isLoading ? (
-          <div className="px-2">
-            <SidebarMenuSkeleton showIcon />
+          <div className="px-2 flex items-center gap-2 h-10">
+            <Skeleton className="size-8 rounded-lg shrink-0" />
+            <Skeleton className="h-4 flex-1" />
           </div>
         ) : (
           <WorkspaceSwitcher

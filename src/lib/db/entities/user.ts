@@ -1,6 +1,10 @@
 import { nanoid } from "nanoid";
-import { getItem, putItem, updateItem, queryByIndex } from "../operations";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { getItem, putItem, updateItem } from "../operations";
+import { TABLES, dynamodb } from "../client";
 import type { User, UserCreateInput, UserUpdateInput, UserDBItem } from "@/types/user";
+
+const T = TABLES.USERS;
 
 export function createUserPK(userId: string): string {
   return `USER#${userId}`;
@@ -8,10 +12,6 @@ export function createUserPK(userId: string): string {
 
 export function createUserSK(): string {
   return "PROFILE";
-}
-
-export function createUserEmailGSI(email: string): string {
-  return `EMAIL#${email.toLowerCase()}`;
 }
 
 function dbItemToUser(item: UserDBItem): User {
@@ -27,14 +27,13 @@ function dbItemToUser(item: UserDBItem): User {
 }
 
 export async function createUser(input: UserCreateInput): Promise<User> {
-  const id = nanoid();
+  // Use cognitoSub as the stable user ID so we can look up users without a GSI
+  const id = input.cognitoSub || nanoid();
   const now = new Date().toISOString();
 
   const item: UserDBItem = {
     PK: createUserPK(id),
     SK: createUserSK(),
-    GSI3PK: createUserEmailGSI(input.email),
-    GSI3SK: "USER",
     id,
     email: input.email.toLowerCase(),
     name: input.name,
@@ -43,32 +42,25 @@ export async function createUser(input: UserCreateInput): Promise<User> {
     updatedAt: now,
   };
 
-  await putItem(item);
+  await putItem(T, item);
   return dbItemToUser(item);
 }
 
 export async function getUserById(userId: string): Promise<User | null> {
-  const item = await getItem<UserDBItem>(createUserPK(userId), createUserSK());
+  const item = await getItem<UserDBItem>(T, createUserPK(userId), createUserSK());
   return item ? dbItemToUser(item) : null;
 }
 
 export async function getUserByEmail(email: string): Promise<User | null> {
-  const { items } = await queryByIndex<UserDBItem>(
-    "GSI3",
-    "GSI3PK",
-    createUserEmailGSI(email),
-    "GSI3SK",
-    "USER"
-  );
-
-  return items.length > 0 ? dbItemToUser(items[0]) : null;
-}
-
-export async function getUserByCognitoSub(cognitoSub: string): Promise<User | null> {
-  // For now, we need to query by email since we don't have a GSI for cognitoSub
-  // In production, you might want to add a GSI for this
-  // This is a limitation that should be addressed with a proper index
-  return null;
+  const command = new ScanCommand({
+    TableName: T,
+    FilterExpression: "email = :email",
+    ExpressionAttributeValues: { ":email": email.toLowerCase() },
+    Limit: 1,
+  });
+  const response = await dynamodb.send(command);
+  const items = response.Items as UserDBItem[] | undefined;
+  return items && items.length > 0 ? dbItemToUser(items[0]) : null;
 }
 
 export async function updateUser(userId: string, input: UserUpdateInput): Promise<User | null> {
@@ -80,20 +72,17 @@ export async function updateUser(userId: string, input: UserUpdateInput): Promis
     updatedAt: new Date().toISOString(),
   };
 
-  await updateItem(createUserPK(userId), createUserSK(), updates);
+  await updateItem(T, createUserPK(userId), createUserSK(), updates);
 
   return getUserById(userId);
 }
 
 export async function getOrCreateUser(email: string, name: string, cognitoSub: string): Promise<User> {
-  const existingUser = await getUserByEmail(email);
+  // Direct lookup by cognitoSub (used as user ID) — no GSI required
+  const existingUser = await getUserById(cognitoSub);
   if (existingUser) {
     return existingUser;
   }
 
-  return createUser({
-    email,
-    name,
-    cognitoSub,
-  });
+  return createUser({ email, name, cognitoSub });
 }

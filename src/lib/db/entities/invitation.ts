@@ -1,6 +1,9 @@
 import { nanoid } from "nanoid";
-import { putItem, getItem, queryByIndex, updateItem, deleteItem, queryItems } from "../operations";
+import { putItem, queryByIndex, updateItem, queryItems } from "../operations";
+import { TABLES } from "../client";
 import type { Invitation, InvitationDBItem } from "@/types/invitation";
+
+const T = TABLES.INVITATIONS;
 
 function createInvitePK(workspaceId: string): string {
   return `WORKSPACE#${workspaceId}`;
@@ -59,12 +62,13 @@ export async function createInvitation(input: {
     updatedAt: now,
   };
 
-  await putItem(item);
+  await putItem(T, item);
   return dbItemToInvitation(item);
 }
 
 export async function getInvitationByToken(token: string): Promise<Invitation | null> {
   const { items } = await queryByIndex<InvitationDBItem>(
+    T,
     "GSI2",
     "GSI2PK",
     `INVITE_TOKEN#${token}`,
@@ -77,6 +81,7 @@ export async function getInvitationByToken(token: string): Promise<Invitation | 
 
 export async function getWorkspaceInvitations(workspaceId: string): Promise<Invitation[]> {
   const { items } = await queryItems<InvitationDBItem>(
+    T,
     createInvitePK(workspaceId),
     "INVITE#"
   );
@@ -86,6 +91,7 @@ export async function getWorkspaceInvitations(workspaceId: string): Promise<Invi
 export async function acceptInvitation(invitation: Invitation): Promise<void> {
   const now = new Date().toISOString();
   await updateItem(
+    T,
     createInvitePK(invitation.workspaceId),
     createInviteSK(invitation.id),
     { status: "accepted", updatedAt: now }
@@ -95,6 +101,7 @@ export async function acceptInvitation(invitation: Invitation): Promise<void> {
 export async function revokeInvitation(workspaceId: string, inviteId: string): Promise<void> {
   const now = new Date().toISOString();
   await updateItem(
+    T,
     createInvitePK(workspaceId),
     createInviteSK(inviteId),
     { status: "revoked", updatedAt: now }

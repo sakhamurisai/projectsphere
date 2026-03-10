@@ -106,6 +106,7 @@ export default function ListPage({ params }: ListPageProps) {
         <TaskDetail
           taskId={selectedTaskId}
           open={taskDetailOpen}
+          workspaceId={workspaceId}
           onOpenChange={(open) => {
             setTaskDetailOpen(open);
             if (!open) setSelectedTaskId(null);
@@ -118,6 +119,7 @@ export default function ListPage({ params }: ListPageProps) {
         onOpenChange={setCreateDialogOpen}
         onSubmit={handleCreateTask}
         isSubmitting={isCreating}
+        workspaceId={workspaceId}
       />
     </div>
   );

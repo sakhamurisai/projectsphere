@@ -8,14 +8,14 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3Client = new S3Client({
-  region: process.env.AWS_S3_REGION || process.env.AWS_REGION || "us-east-1",
+  region: process.env.NEXT_PUBLIC_AWS_S3_REGION || "us-east-2",
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+    accessKeyId: process.env.NEXT_AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.NEXT_AWS_SECRET_ACCESS_KEY || "",
   },
 });
 
-export const S3_BUCKET = process.env.AWS_S3_BUCKET_NAME || "projectsphere-files";
+export const S3_BUCKET = process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME || "projectsphere-files";
 
 export function buildS3Key(
   entityType: "avatars" | "tasks" | "projects",
@@ -78,6 +78,6 @@ export async function objectExists(key: string): Promise<boolean> {
 }
 
 export function getPublicUrl(key: string): string {
-  const region = process.env.AWS_S3_REGION || process.env.AWS_REGION || "us-east-1";
+  const region = process.env.NEXT_PUBLIC_AWS_S3_REGION || "us-east-2";
   return `https://${S3_BUCKET}.s3.${region}.amazonaws.com/${key}`;
 }

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getUserByEmail } from "@/lib/db/entities/user";
+import { getUserById } from "@/lib/db/entities/user";
 import {
   updateWorkspaceMemberRole,
   removeWorkspaceMember,
@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       throw new UnauthorizedError();
     }
 
-    const currentUser = await getUserByEmail(authUser.email);
+    const currentUser = await getUserById(authUser.id);
     if (!currentUser) {
       throw new NotFoundError("User not found");
     }
@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       throw new UnauthorizedError();
     }
 
-    const currentUser = await getUserByEmail(authUser.email);
+    const currentUser = await getUserById(authUser.id);
     if (!currentUser) {
       throw new NotFoundError("User not found");
     }

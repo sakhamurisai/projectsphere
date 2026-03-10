@@ -1,18 +1,61 @@
 import type { Metadata } from "next";
-import { Roboto } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const roboto = Roboto({
+const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "700"],
   display: "swap",
 });
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://projectsphere.io";
+
 export const metadata: Metadata = {
-  title: "ProjectSphere - Project Management",
-  description: "A modern project management system for teams",
+  metadataBase: new URL(APP_URL),
+  title: {
+    default: "ProjectSphere — Project Management for Teams",
+    template: "%s | ProjectSphere",
+  },
+  description:
+    "ProjectSphere is a modern project management tool for high-performing teams. Kanban boards, sprint tracking, real-time collaboration, and more.",
+  keywords: [
+    "project management",
+    "kanban board",
+    "team collaboration",
+    "sprint planning",
+    "task tracking",
+    "agile",
+    "projectsphere",
+  ],
+  authors: [{ name: "ProjectSphere" }],
+  creator: "ProjectSphere",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: APP_URL,
+    siteName: "ProjectSphere",
+    title: "ProjectSphere — Project Management for Teams",
+    description:
+      "Kanban boards, sprint tracking, real-time collaboration, and more — all in one place.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "ProjectSphere" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ProjectSphere — Project Management for Teams",
+    description: "Kanban boards, sprint tracking, and real-time collaboration.",
+    images: ["/og-image.png"],
+    creator: "@projectsphere",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -22,7 +65,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${roboto.variable} antialiased`}>
+      <body className={`${inter.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

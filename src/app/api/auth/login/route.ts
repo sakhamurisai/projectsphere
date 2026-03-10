@@ -45,11 +45,17 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     if (error instanceof Error) {
-      if (error.name === "NotAuthorizedException") {
-        return errorResponse(new UnauthorizedError("Invalid email or password"));
-      }
-      if (error.name === "UserNotConfirmedException") {
-        return errorResponse(new BadRequestError("Please verify your email before logging in", "EMAIL_NOT_VERIFIED"));
+      switch (error.name) {
+        case "NotAuthorizedException":
+          return errorResponse(new UnauthorizedError("Invalid email or password"));
+        case "UserNotConfirmedException":
+          return errorResponse(new BadRequestError("Please verify your email before logging in", "EMAIL_NOT_VERIFIED"));
+        case "UserNotFoundException":
+          return errorResponse(new UnauthorizedError("Invalid email or password"));
+        case "PasswordResetRequiredException":
+          return errorResponse(new BadRequestError("Password reset required. Please reset your password."));
+        case "TooManyRequestsException":
+          return errorResponse(new BadRequestError("Too many login attempts. Please try again later."));
       }
     }
     return errorResponse(error);

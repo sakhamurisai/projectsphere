@@ -148,7 +148,7 @@ function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
-          <Image src="/logo.svg" alt="Project sphere" width={132} height={32} className="h-8 w-32" />
+          <Image src="/logo.svg" alt="Project sphere" width={132} height={32} className="h-8 w-auto" />
         </Link>
 
         {/* Nav links */}

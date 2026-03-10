@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getUserByEmail } from "@/lib/db/entities/user";
+import { getUserById } from "@/lib/db/entities/user";
 import { generatePresignedUploadUrl, buildS3Key } from "@/lib/storage/s3";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { UnauthorizedError, BadRequestError, NotFoundError } from "@/lib/api/errors";
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       throw new UnauthorizedError();
     }
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) {
       throw new NotFoundError("User not found");
     }

@@ -21,8 +21,17 @@ export async function POST(request: NextRequest) {
       userSub,
     });
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === "UsernameExistsException") {
-      return errorResponse(new BadRequestError("An account with this email already exists"));
+    if (error instanceof Error) {
+      switch (error.name) {
+        case "UsernameExistsException":
+          return errorResponse(new BadRequestError("An account with this email already exists"));
+        case "InvalidPasswordException":
+          return errorResponse(new BadRequestError("Password does not meet requirements"));
+        case "InvalidParameterException":
+          return errorResponse(new BadRequestError("Invalid registration details"));
+        case "TooManyRequestsException":
+          return errorResponse(new BadRequestError("Too many requests. Please try again later."));
+      }
     }
     return errorResponse(error);
   }

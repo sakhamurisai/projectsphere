@@ -9,7 +9,9 @@
       "Bash(npx next:*)",
       "Bash(dir:*)",
       "Bash(rm:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find \"D:/Ocean blue/projectsphere/src/app/\\(auth\\)\" -type f)",
+      "Bash(cd \"D:/Ocean blue/projectsphere\" && npm run build 2>&1 | tail -20)"
     ]
   }
 }

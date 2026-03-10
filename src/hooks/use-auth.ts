@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { getCognitoLogoutUrl } from "@/lib/auth/cognito-oauth";
 import type { AuthUser } from "@/types/auth";
 
 export function useAuth() {
@@ -47,7 +48,6 @@ export function useAuth() {
       }
 
       setUser(data.data.user);
-      router.push("/");
       return data.data;
     },
     [setUser, router]
@@ -147,9 +147,9 @@ export function useAuth() {
     } finally {
       clearAuth();
       resetWorkspaces();
-      router.push("/login");
+      window.location.href = getCognitoLogoutUrl();
     }
-  }, [clearAuth, resetWorkspaces, router]);
+  }, [clearAuth, resetWorkspaces]);
 
   const refreshAuth = useCallback(async () => {
     try {

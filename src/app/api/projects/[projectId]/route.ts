@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getUserByEmail } from "@/lib/db/entities/user";
+import { getUserById } from "@/lib/db/entities/user";
 import { getUserWorkspaceRole } from "@/lib/db/entities/workspace";
 import {
   getProjectById,
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       throw new UnauthorizedError();
     }
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) {
       throw new NotFoundError("User not found");
     }
@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       throw new UnauthorizedError();
     }
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) {
       throw new NotFoundError("User not found");
     }
@@ -102,7 +102,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       throw new UnauthorizedError();
     }
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) {
       throw new NotFoundError("User not found");
     }

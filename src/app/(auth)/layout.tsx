@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Layers } from "lucide-react";
+import Image from "next/image";
 
 export default function AuthLayout({
   children,
@@ -17,10 +17,14 @@ export default function AuthLayout({
 
         <div className="relative z-10 max-w-md text-center">
           <Link href="/" className="mb-8 inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              <Layers className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight">ProjectSphere</span>
+            <Image
+              src="/logo.svg"
+              alt="ProjectSphere"
+              width={160}
+              height={40}
+              className="brightness-0 invert"
+              priority
+            />
           </Link>
 
           <h1 className="mt-8 text-4xl font-bold leading-tight">
@@ -63,10 +67,7 @@ export default function AuthLayout({
       <div className="flex w-full flex-col items-center justify-center bg-background px-6 py-12 lg:w-1/2">
         {/* Mobile logo */}
         <Link href="/" className="mb-8 flex items-center gap-2 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Layers className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold">ProjectSphere</span>
+          <Image src="/logo.svg" alt="ProjectSphere" width={140} height={35} priority />
         </Link>
         <div className="w-full max-w-md">
           {children}

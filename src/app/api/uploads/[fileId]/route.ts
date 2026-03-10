@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getUserByEmail } from "@/lib/db/entities/user";
+import { getUserById } from "@/lib/db/entities/user";
 import { getFileById, createFileRecord, deleteFileRecord } from "@/lib/db/entities/file";
 import { generatePresignedDownloadUrl } from "@/lib/storage/s3";
 import { successResponse, noContentResponse, errorResponse } from "@/lib/api/response";
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       throw new UnauthorizedError();
     }
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) {
       throw new NotFoundError("User not found");
     }
@@ -88,7 +88,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       throw new UnauthorizedError();
     }
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) {
       throw new NotFoundError("User not found");
     }

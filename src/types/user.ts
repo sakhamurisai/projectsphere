@@ -22,8 +22,6 @@ export interface UserUpdateInput {
 export interface UserDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
-  GSI3PK: string;
-  GSI3SK: string;
   id: string;
   email: string;
   name: string;

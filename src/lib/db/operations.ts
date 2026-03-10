@@ -7,7 +7,7 @@ import {
   BatchWriteCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { dynamodb, TABLE_NAME } from "./client";
+import { dynamodb } from "./client";
 
 export interface QueryOptions {
   indexName?: string;
@@ -19,9 +19,9 @@ export interface QueryOptions {
   expressionAttributeValues?: Record<string, unknown>;
 }
 
-export async function getItem<T>(pk: string, sk: string): Promise<T | null> {
+export async function getItem<T>(tableName: string, pk: string, sk: string): Promise<T | null> {
   const command = new GetCommand({
-    TableName: TABLE_NAME,
+    TableName: tableName,
     Key: { PK: pk, SK: sk },
   });
 
@@ -29,9 +29,9 @@ export async function getItem<T>(pk: string, sk: string): Promise<T | null> {
   return (response.Item as T) || null;
 }
 
-export async function putItem<T extends Record<string, unknown>>(item: T): Promise<void> {
+export async function putItem<T extends Record<string, unknown>>(tableName: string, item: T): Promise<void> {
   const command = new PutCommand({
-    TableName: TABLE_NAME,
+    TableName: tableName,
     Item: item,
   });
 
@@ -39,6 +39,7 @@ export async function putItem<T extends Record<string, unknown>>(item: T): Promi
 }
 
 export async function updateItem(
+  tableName: string,
   pk: string,
   sk: string,
   updates: Record<string, unknown>
@@ -56,7 +57,7 @@ export async function updateItem(
   });
 
   const command = new UpdateCommand({
-    TableName: TABLE_NAME,
+    TableName: tableName,
     Key: { PK: pk, SK: sk },
     UpdateExpression: `SET ${updateExpressions.join(", ")}`,
     ExpressionAttributeNames: expressionAttributeNames,
@@ -66,9 +67,9 @@ export async function updateItem(
   await dynamodb.send(command);
 }
 
-export async function deleteItem(pk: string, sk: string): Promise<void> {
+export async function deleteItem(tableName: string, pk: string, sk: string): Promise<void> {
   const command = new DeleteCommand({
-    TableName: TABLE_NAME,
+    TableName: tableName,
     Key: { PK: pk, SK: sk },
   });
 
@@ -76,6 +77,7 @@ export async function deleteItem(pk: string, sk: string): Promise<void> {
 }
 
 export async function queryItems<T>(
+  tableName: string,
   pkValue: string,
   skPrefix?: string,
   options: QueryOptions = {}
@@ -93,7 +95,7 @@ export async function queryItems<T>(
   }
 
   const command = new QueryCommand({
-    TableName: TABLE_NAME,
+    TableName: tableName,
     KeyConditionExpression: keyConditionExpression,
     ExpressionAttributeValues: expressionAttributeValues,
     ExpressionAttributeNames: options.expressionAttributeNames,
@@ -111,6 +113,7 @@ export async function queryItems<T>(
 }
 
 export async function queryByIndex<T>(
+  tableName: string,
   indexName: string,
   pkName: string,
   pkValue: string,
@@ -137,7 +140,7 @@ export async function queryByIndex<T>(
   }
 
   const command = new QueryCommand({
-    TableName: TABLE_NAME,
+    TableName: tableName,
     IndexName: indexName,
     KeyConditionExpression: keyConditionExpression,
     ExpressionAttributeNames: expressionAttributeNames,
@@ -155,7 +158,10 @@ export async function queryByIndex<T>(
   };
 }
 
-export async function batchWriteItems(items: { put?: Record<string, unknown>; delete?: { pk: string; sk: string } }[]): Promise<void> {
+export async function batchWriteItems(
+  tableName: string,
+  items: { put?: Record<string, unknown>; delete?: { pk: string; sk: string } }[]
+): Promise<void> {
   const writeRequests = items.map((item) => {
     if (item.put) {
       return { PutRequest: { Item: item.put } };
@@ -172,24 +178,24 @@ export async function batchWriteItems(items: { put?: Record<string, unknown>; de
 
   for (const batch of batches) {
     const command = new BatchWriteCommand({
-      RequestItems: {
-        [TABLE_NAME]: batch,
-      },
+      RequestItems: { [tableName]: batch },
     });
-
     await dynamodb.send(command);
   }
 }
 
-export async function transactWrite(items: {
-  put?: Record<string, unknown>;
-  update?: { pk: string; sk: string; updates: Record<string, unknown> };
-  delete?: { pk: string; sk: string };
-  conditionCheck?: { pk: string; sk: string; condition: string; values?: Record<string, unknown> };
-}[]): Promise<void> {
+export async function transactWrite(
+  tableName: string,
+  items: {
+    put?: Record<string, unknown>;
+    update?: { pk: string; sk: string; updates: Record<string, unknown> };
+    delete?: { pk: string; sk: string };
+    conditionCheck?: { pk: string; sk: string; condition: string; values?: Record<string, unknown> };
+  }[]
+): Promise<void> {
   const transactItems = items.map((item) => {
     if (item.put) {
-      return { Put: { TableName: TABLE_NAME, Item: item.put } };
+      return { Put: { TableName: tableName, Item: item.put } };
     } else if (item.update) {
       const updateExpressions: string[] = [];
       const expressionAttributeNames: Record<string, string> = {};
@@ -205,7 +211,7 @@ export async function transactWrite(items: {
 
       return {
         Update: {
-          TableName: TABLE_NAME,
+          TableName: tableName,
           Key: { PK: item.update.pk, SK: item.update.sk },
           UpdateExpression: `SET ${updateExpressions.join(", ")}`,
           ExpressionAttributeNames: expressionAttributeNames,
@@ -215,14 +221,14 @@ export async function transactWrite(items: {
     } else if (item.delete) {
       return {
         Delete: {
-          TableName: TABLE_NAME,
+          TableName: tableName,
           Key: { PK: item.delete.pk, SK: item.delete.sk },
         },
       };
     } else if (item.conditionCheck) {
       return {
         ConditionCheck: {
-          TableName: TABLE_NAME,
+          TableName: tableName,
           Key: { PK: item.conditionCheck.pk, SK: item.conditionCheck.sk },
           ConditionExpression: item.conditionCheck.condition,
           ExpressionAttributeValues: item.conditionCheck.values,
@@ -232,9 +238,6 @@ export async function transactWrite(items: {
     throw new Error("Invalid transaction item");
   });
 
-  const command = new TransactWriteCommand({
-    TransactItems: transactItems,
-  });
-
+  const command = new TransactWriteCommand({ TransactItems: transactItems });
   await dynamodb.send(command);
 }

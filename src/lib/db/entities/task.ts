@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { getItem, putItem, updateItem, deleteItem, queryItems, queryByIndex, batchWriteItems } from "../operations";
+import { TABLES } from "../client";
 import { getUserById } from "./user";
 import { getProjectById, incrementProjectTaskCount, decrementProjectTaskCount } from "./project";
 import type {
@@ -10,6 +11,8 @@ import type {
   TaskDBItem,
   TaskFilters
 } from "@/types/task";
+
+const T = TABLES.TASKS;
 
 export function createProjectPK(projectId: string): string {
   return `PROJECT#${projectId}`;
@@ -100,8 +103,8 @@ export async function createTask(
   const status = input.status || "todo";
   const priority = input.priority || "medium";
 
-  // Get the highest order for this status
   const { items: existingTasks } = await queryByIndex<TaskDBItem>(
+    T,
     "GSI4",
     "GSI4PK",
     createStatusOrderGSI(projectId, status),
@@ -138,7 +141,7 @@ export async function createTask(
     updatedAt: now,
   };
 
-  await putItem(item);
+  await putItem(T, item);
   await incrementProjectTaskCount(projectId);
 
   const task = dbItemToTask(item);
@@ -147,6 +150,7 @@ export async function createTask(
 
 export async function getTaskById(taskId: string): Promise<Task | null> {
   const { items } = await queryByIndex<TaskDBItem>(
+    T,
     "GSI1",
     "GSI1PK",
     createTaskPK(taskId),
@@ -161,11 +165,10 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
 }
 
 export async function getProjectTasks(projectId: string, filters?: TaskFilters): Promise<Task[]> {
-  const { items } = await queryItems<TaskDBItem>(createProjectPK(projectId), "TASK#");
+  const { items } = await queryItems<TaskDBItem>(T, createProjectPK(projectId), "TASK#");
 
   let tasks = items.map(dbItemToTask);
 
-  // Apply filters
   if (filters) {
     if (filters.status && filters.status.length > 0) {
       tasks = tasks.filter((t) => filters.status!.includes(t.status));
@@ -186,15 +189,14 @@ export async function getProjectTasks(projectId: string, filters?: TaskFilters):
     }
   }
 
-  // Sort by order
   tasks.sort((a, b) => a.order - b.order);
 
-  // Enrich with user data
   return Promise.all(tasks.map(enrichTaskWithUsers));
 }
 
 export async function getTasksByStatus(projectId: string, status: TaskStatus): Promise<Task[]> {
   const { items } = await queryByIndex<TaskDBItem>(
+    T,
     "GSI4",
     "GSI4PK",
     createStatusOrderGSI(projectId, status)
@@ -214,13 +216,12 @@ export async function updateTask(taskId: string, input: TaskUpdateInput): Promis
     updatedAt: now,
   };
 
-  // Handle status change - update GSI4
   if (input.status && input.status !== existingTask.status) {
     updates.GSI4PK = createStatusOrderGSI(existingTask.projectId, input.status);
 
-    // Get the highest order for the new status if order is not provided
     if (input.order === undefined) {
       const { items } = await queryByIndex<TaskDBItem>(
+        T,
         "GSI4",
         "GSI4PK",
         createStatusOrderGSI(existingTask.projectId, input.status),
@@ -234,22 +235,20 @@ export async function updateTask(taskId: string, input: TaskUpdateInput): Promis
     }
   }
 
-  // Handle order change
   if (input.order !== undefined) {
     updates.GSI4SK = createOrderGSI(input.order);
   }
 
-  // Handle assignee change
   if (input.assigneeId !== undefined) {
     updates.GSI2PK = createAssigneeGSI(input.assigneeId || undefined);
   }
 
-  // Handle due date change
   if (input.dueDate !== undefined) {
     updates.GSI2SK = createDueDateGSI(input.dueDate || undefined);
   }
 
   await updateItem(
+    T,
     createProjectPK(existingTask.projectId),
     createTaskSK(taskId),
     updates
@@ -262,11 +261,11 @@ export async function deleteTask(taskId: string): Promise<void> {
   const task = await getTaskById(taskId);
   if (!task) return;
 
-  await deleteItem(createProjectPK(task.projectId), createTaskSK(taskId));
+  await deleteItem(T, createProjectPK(task.projectId), createTaskSK(taskId));
   await decrementProjectTaskCount(task.projectId);
 
-  // Also delete any subtasks
   const { items: subtasks } = await queryItems<TaskDBItem>(
+    T,
     createProjectPK(task.projectId),
     "TASK#",
     {
@@ -277,6 +276,7 @@ export async function deleteTask(taskId: string): Promise<void> {
 
   if (subtasks.length > 0) {
     await batchWriteItems(
+      T,
       subtasks.map((st) => ({ delete: { pk: st.PK, sk: st.SK } }))
     );
   }
@@ -299,6 +299,7 @@ export async function reorderTask(
   };
 
   await updateItem(
+    T,
     createProjectPK(task.projectId),
     createTaskSK(taskId),
     updates
@@ -312,6 +313,7 @@ export async function getSubtasks(parentTaskId: string): Promise<Task[]> {
   if (!task) return [];
 
   const { items } = await queryItems<TaskDBItem>(
+    T,
     createProjectPK(task.projectId),
     "TASK#",
     {
@@ -326,6 +328,7 @@ export async function getSubtasks(parentTaskId: string): Promise<Task[]> {
 
 export async function getUserAssignedTasks(userId: string): Promise<Task[]> {
   const { items } = await queryByIndex<TaskDBItem>(
+    T,
     "GSI2",
     "GSI2PK",
     createAssigneeGSI(userId)
@@ -340,27 +343,17 @@ export async function reorderTasksInColumn(
   status: TaskStatus,
   taskIds: string[]
 ): Promise<void> {
-  const updates = taskIds.map((taskId, index) => ({
-    update: {
-      pk: createProjectPK(projectId),
-      sk: createTaskSK(taskId),
-      updates: {
-        order: index,
-        GSI4SK: createOrderGSI(index),
-        updatedAt: new Date().toISOString(),
-      },
-    },
-  }));
-
-  // Process in batches of 25 (DynamoDB limit)
-  for (let i = 0; i < updates.length; i += 25) {
-    const batch = updates.slice(i, i + 25);
+  for (let i = 0; i < taskIds.length; i += 25) {
+    const batch = taskIds.slice(i, i + 25);
     await batchWriteItems(
-      batch.map((u) => ({
+      T,
+      batch.map((taskId, idx) => ({
         put: {
-          PK: u.update.pk,
-          SK: u.update.sk,
-          ...u.update.updates,
+          PK: createProjectPK(projectId),
+          SK: createTaskSK(taskId),
+          order: i + idx,
+          GSI4SK: createOrderGSI(i + idx),
+          updatedAt: new Date().toISOString(),
         },
       }))
     );

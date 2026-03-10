@@ -17,6 +17,7 @@ interface CreateTaskDialogProps {
   onSubmit: (data: CreateTaskInput) => Promise<void>;
   isSubmitting?: boolean;
   defaultStatus?: TaskStatus;
+  workspaceId: string;
 }
 
 export function CreateTaskDialog({
@@ -25,6 +26,7 @@ export function CreateTaskDialog({
   onSubmit,
   isSubmitting,
   defaultStatus,
+  workspaceId,
 }: CreateTaskDialogProps) {
   const handleSubmit = async (data: CreateTaskInput) => {
     await onSubmit(data);
@@ -33,11 +35,11 @@ export function CreateTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Create Task</DialogTitle>
-          <DialogDescription>
-            Add a new task to this project
+          <DialogTitle className="text-base font-semibold">New Task</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Add a task to this project. Use @ to mention teammates.
           </DialogDescription>
         </DialogHeader>
         <TaskForm
@@ -45,6 +47,7 @@ export function CreateTaskDialog({
           onCancel={() => onOpenChange(false)}
           isSubmitting={isSubmitting}
           defaultValues={{ status: defaultStatus }}
+          workspaceId={workspaceId}
         />
       </DialogContent>
     </Dialog>

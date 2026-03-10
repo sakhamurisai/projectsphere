@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify, createRemoteJWKSet } from "jose";
 
-const COGNITO_REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
-const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "";
+const COGNITO_REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-2";
+const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "us-east-2_PLlWKITi8";
 
-const JWKS_URL = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`;
+const COGNITO_BASE = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${USER_POOL_ID}`;
+const JWKS_URL = `${COGNITO_BASE}/.well-known/jwks.json`;
 
 const publicPaths = ["/login", "/register", "/forgot-password", "/verify-email", "/reset-password"];
-const authApiPaths = ["/api/auth/login", "/api/auth/register", "/api/auth/verify-email", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/refresh"];
+const authApiPaths = ["/api/auth/login", "/api/auth/register", "/api/auth/verify-email", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/refresh", "/api/auth/callback"];
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
@@ -22,7 +23,7 @@ function getJWKS() {
 async function verifyToken(token: string): Promise<boolean> {
   try {
     await jwtVerify(token, getJWKS(), {
-      issuer: `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${USER_POOL_ID}`,
+      issuer: COGNITO_BASE,
     });
     return true;
   } catch {

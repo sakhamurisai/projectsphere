@@ -36,7 +36,7 @@ A full-scale project management platform built with **Next.js 16**, **AWS Cognit
 | Language | TypeScript 5 |
 | UI | shadcn/ui + Tailwind CSS v4 |
 | State | Zustand (global) + TanStack Query v5 (server) |
-| Auth | AWS Cognito + jose (JWT) |
+| Auth | AWS Cognito |
 | Database | AWS DynamoDB (single-table design) |
 | Storage | AWS S3 (presigned URLs) |
 | Email | AWS SES |

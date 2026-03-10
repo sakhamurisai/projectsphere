@@ -1,17 +1,16 @@
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import nodemailer from "nodemailer";
 
-const ses = new SESClient({
-  region: process.env.AWS_REGION ?? "us-east-1",
-  credentials:
-    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-      ? {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        }
-      : undefined,
+const transporter = nodemailer.createTransport({
+  host: "email-smtp.us-east-2.amazonaws.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.NEXT_AWS_STMP ?? "",
+    pass: process.env.NEXT_AWS_STMP_PASSWORD ?? "",
+  },
 });
 
-const FROM_EMAIL = process.env.SES_FROM_EMAIL ?? "noreply@projectsphere.app";
+const FROM_EMAIL = process.env.NEXT_AWS_SES_FROM_EMAIL ?? "noreply@projectsphere.app";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export async function sendInvitationEmail(opts: {
@@ -77,25 +76,13 @@ export async function sendInvitationEmail(opts: {
 </body>
 </html>`;
 
-  const command = new SendEmailCommand({
-    Source: FROM_EMAIL,
-    Destination: { ToAddresses: [opts.to] },
-    Message: {
-      Subject: {
-        Data: `${opts.invitedByName} invited you to ${opts.workspaceName} on ProjectSphere`,
-        Charset: "UTF-8",
-      },
-      Body: {
-        Html: { Data: html, Charset: "UTF-8" },
-        Text: {
-          Data: `${opts.invitedByName} invited you to join ${opts.workspaceName} as a ${opts.role}.\n\nAccept your invitation: ${inviteUrl}\n\nThis invite expires in 7 days.`,
-          Charset: "UTF-8",
-        },
-      },
-    },
+  await transporter.sendMail({
+    from: FROM_EMAIL,
+    to: opts.to,
+    subject: `${opts.invitedByName} invited you to ${opts.workspaceName} on ProjectSphere`,
+    html,
+    text: `${opts.invitedByName} invited you to join ${opts.workspaceName} as a ${opts.role}.\n\nAccept your invitation: ${inviteUrl}\n\nThis invite expires in 7 days.`,
   });
-
-  await ses.send(command);
 }
 
 export async function sendWelcomeEmail(opts: {
@@ -114,7 +101,7 @@ export async function sendWelcomeEmail(opts: {
       <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">ProjectSphere</h1>
     </div>
     <div style="padding: 36px 32px;">
-      <h2 style="color: #09090b; margin: 0 0 12px; font-size: 22px;">Welcome, ${opts.name}! 🎉</h2>
+      <h2 style="color: #09090b; margin: 0 0 12px; font-size: 22px;">Welcome, ${opts.name}!</h2>
       <p style="color: #71717a; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">
         Your workspace <strong style="color: #3f3f46;">${opts.workspaceName}</strong> is ready.
         Start managing projects, assign tasks, and collaborate with your team.
@@ -130,17 +117,11 @@ export async function sendWelcomeEmail(opts: {
 </body>
 </html>`;
 
-  const command = new SendEmailCommand({
-    Source: FROM_EMAIL,
-    Destination: { ToAddresses: [opts.to] },
-    Message: {
-      Subject: { Data: `Welcome to ProjectSphere — ${opts.workspaceName} is ready!`, Charset: "UTF-8" },
-      Body: {
-        Html: { Data: html, Charset: "UTF-8" },
-        Text: { Data: `Welcome ${opts.name}! Your workspace ${opts.workspaceName} is ready. Visit: ${dashboardUrl}`, Charset: "UTF-8" },
-      },
-    },
+  await transporter.sendMail({
+    from: FROM_EMAIL,
+    to: opts.to,
+    subject: `Welcome to ProjectSphere — ${opts.workspaceName} is ready!`,
+    html,
+    text: `Welcome ${opts.name}! Your workspace ${opts.workspaceName} is ready. Visit: ${dashboardUrl}`,
   });
-
-  await ses.send(command);
 }

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getUserByEmail } from "@/lib/db/entities/user";
+import { getUserById, getUserByEmail } from "@/lib/db/entities/user";
 import { getUserWorkspaceRole, getWorkspaceById, addWorkspaceMember } from "@/lib/db/entities/workspace";
 import {
   createInvitation,
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const authUser = await getCurrentUser();
     if (!authUser) throw new UnauthorizedError();
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) throw new NotFoundError("User not found");
 
     const role = await getUserWorkspaceRole(workspaceId, user.id);
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const authUser = await getCurrentUser();
     if (!authUser) throw new UnauthorizedError();
 
-    const user = await getUserByEmail(authUser.email);
+    const user = await getUserById(authUser.id);
     if (!user) throw new NotFoundError("User not found");
 
     const workspaceRole = await getUserWorkspaceRole(workspaceId, user.id);

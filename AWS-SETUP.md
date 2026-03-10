@@ -1,86 +1,186 @@
-# AWS Setup Guide — ProjectSphere
+# AWS Setup — ProjectSphere
 
-Complete setup instructions for all AWS services used by ProjectSphere: **Cognito** (auth), **DynamoDB** (database), and **S3** (file storage).
+Full setup guide for every AWS service the app uses.
 
----
+**Services:** Cognito · DynamoDB (8 tables) · S3 · SES · IAM
 
-## Prerequisites
-
-- AWS account with admin access
-- AWS CLI installed and configured (`aws configure`)
-- Node.js 18+
+**Region:** `us-east-2` (all services unless noted)
 
 ---
 
-## 1. AWS Cognito — User Authentication
+## Quick Start
 
-### 1.1 Create a User Pool
+```bash
+# 1. Clone and install
+npm install
 
-1. Open [AWS Console → Cognito](https://console.aws.amazon.com/cognito/)
-2. Click **Create user pool**
-3. **Authentication providers**: Select **Email** (Cognito user pool)
-4. Click **Next**
+# 2. Copy env template
+cp .env.example .env.local
 
-### 1.2 Security Requirements
+# 3. Follow this guide top-to-bottom, fill in .env.local as you go
+# 4. Run dev server
+npm run dev
+```
+
+---
+
+## 1. IAM — Credentials
+
+Set up IAM **before** the other services so you have credentials ready.
+
+### 1.1 Create IAM User
+
+1. Open [IAM → Users → Create user](https://console.aws.amazon.com/iam/home#/users/create)
+2. **User name:** `projectsphere-app`
+3. **Access type:** Programmatic access only (no console login)
+4. Skip permissions for now — attach policy in next step
+
+### 1.2 Create IAM Policy
+
+Create a policy named `ProjectSpherePolicy`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DynamoDB",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:TransactWriteItems"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-users",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-users/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-workspaces",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-workspaces/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-workspace-members",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-workspace-members/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-projects",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-projects/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-project-members",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-project-members/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-tasks",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-tasks/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-invitations",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-invitations/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-files",
+        "arn:aws:dynamodb:us-east-2:*:table/projectsphere-files/index/*"
+      ]
+    },
+    {
+      "Sid": "S3Objects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:GetObjectAttributes"
+      ],
+      "Resource": "arn:aws:s3:::projectsphere-files/*"
+    },
+    {
+      "Sid": "S3Bucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::projectsphere-files"
+    },
+    {
+      "Sid": "SES",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### 1.3 Attach Policy & Get Keys
+
+1. Attach `ProjectSpherePolicy` to the `projectsphere-app` user
+2. Go to **Security credentials → Access keys → Create access key**
+3. Choose **Application running outside AWS**
+4. Copy both keys — you only see them once
+
+```env
+AWS_REGION=us-east-2
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+```
+
+> **Production note:** Use IAM Roles (ECS/EC2 instance profile) instead of static keys. Never commit keys to git.
+
+---
+
+## 2. Cognito — Authentication
+
+### 2.1 Create User Pool
+
+1. Open [Cognito → Create user pool](https://console.aws.amazon.com/cognito/)
+2. **Sign-in option:** Email
+3. Click through with these settings:
+
+**Security:**
 
 | Setting | Value |
 |---|---|
-| Password minimum length | 8 |
+| Password min length | 8 |
 | Require uppercase | ✅ |
 | Require lowercase | ✅ |
 | Require numbers | ✅ |
 | Require special characters | ✅ |
-| MFA | Optional (No MFA for dev) |
-| Self-service account recovery | Email only |
+| MFA | No MFA (enable for production) |
+| Account recovery | Email only |
 
-### 1.3 Sign-up & Verification
-
-- **Required attributes**: `name`, `email`
-- **Email verification**: ✅ Send verification code
-- **Verification message type**: Code
-
-### 1.4 Message Delivery
+**Sign-up:**
 
 | Setting | Value |
 |---|---|
-| FROM email | your-noreply@yourdomain.com |
-| SES region | Same as your app region |
-| Reply-to | support@yourdomain.com |
+| Required attributes | `email`, `name` |
+| Email verification | ✅ Send code |
+| Verification type | Code |
 
-> For development, you can use **Cognito's default email** (limited to 50 emails/day).
-> For production, configure **Amazon SES**.
+**Email delivery:**
+- Development: use Cognito default (50 emails/day limit)
+- Production: use SES (see section 4)
 
-### 1.5 App Integration
+### 2.2 Create App Client
 
-- **User pool name**: `projectsphere-users`
-- **Domain**: Create a Cognito domain → `projectsphere-auth`
-- **App client**:
-  - Click **Add an app client**
-  - Name: `projectsphere-web`
-  - **Authentication flows**: `ALLOW_USER_SRP_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`
-  - **Auth flow session duration**: 3 minutes
-  - Client secret: **Don't generate** (public client)
+Inside the user pool → **App clients → Add app client:**
 
-### 1.6 Collect Values
+| Setting | Value |
+|---|---|
+| App client name | `projectsphere-web` |
+| Client secret | **None** (public client) |
+| Auth flows | `ALLOW_USER_SRP_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH` |
 
-After creation, note:
+### 2.3 Collect Values
+
+After creation, note the following:
 
 ```env
-NEXT_PUBLIC_AWS_REGION=us-east-1
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_XXXXXXXXX
+NEXT_PUBLIC_AWS_REGION=us-east-2
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-2_XXXXXXXXX
 NEXT_PUBLIC_COGNITO_CLIENT_ID=XXXXXXXXXXXXXXXXXXXXXXXXXX
+NEXT_PUBLIC_COGNITO_DOMAIN=https://us-east-2xxxxxxxxx.auth.us-east-2.amazoncognito.com
 ```
 
-Find **JWKS URL** for token verification:
+The JWKS URL for server-side JWT verification is:
 ```
-https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json
-```
-
-```env
-COGNITO_JWKS_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX/.well-known/jwks.json
+https://cognito-idp.us-east-2.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json
 ```
 
-### 1.7 CLI Alternative
+### 2.4 CLI
 
 ```bash
 # Create user pool
@@ -89,170 +189,335 @@ aws cognito-idp create-user-pool \
   --policies 'PasswordPolicy={MinimumLength=8,RequireUppercase=true,RequireLowercase=true,RequireNumbers=true,RequireSymbols=true}' \
   --auto-verified-attributes email \
   --username-attributes email \
-  --schema '[{"Name":"name","Required":true,"Mutable":true},{"Name":"email","Required":true,"Mutable":false}]' \
-  --region us-east-1
+  --schema '[
+    {"Name":"name","Required":true,"Mutable":true},
+    {"Name":"email","Required":true,"Mutable":false}
+  ]' \
+  --region us-east-2
 
-# Create app client (replace USER_POOL_ID)
+# Create app client (replace POOL_ID)
 aws cognito-idp create-user-pool-client \
-  --user-pool-id us-east-1_XXXXXXXXX \
+  --user-pool-id us-east-2_XXXXXXXXX \
   --client-name projectsphere-web \
   --no-generate-secret \
   --explicit-auth-flows ALLOW_USER_SRP_AUTH ALLOW_REFRESH_TOKEN_AUTH \
-  --region us-east-1
+  --region us-east-2
 ```
 
 ---
 
-## 2. AWS DynamoDB — Single-Table Database
+## 3. DynamoDB — 8 Tables
 
-### 2.1 Create the Main Table
+One table per entity. All tables use **On-demand** billing (no capacity planning).
 
-1. Open [AWS Console → DynamoDB](https://console.aws.amazon.com/dynamodb/)
-2. Click **Create table**
+---
 
-| Setting | Value |
-|---|---|
-| Table name | `projectsphere` |
-| Partition key | `PK` (String) |
-| Sort key | `SK` (String) |
-| Table class | DynamoDB Standard |
-| Capacity mode | **On-demand** (pay per request) |
+### Table 1 — `projectsphere-users`
 
-### 2.2 Create Global Secondary Indexes (GSIs)
+Stores user profiles linked to Cognito.
 
-After the table is created, go to **Indexes → Create index** for each:
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `userId` | String |
 
-#### GSI1 — Entity lookup by type
+**GSIs:**
 
-| Field | Value |
-|---|---|
-| Index name | `GSI1` |
-| Partition key | `GSI1PK` (String) |
-| Sort key | `GSI1SK` (String) |
-| Projection | All |
-
-#### GSI2 — Slug/unique lookup
-
-| Field | Value |
-|---|---|
-| Index name | `GSI2` |
-| Partition key | `GSI2PK` (String) |
-| Sort key | `GSI2SK` (String) |
-| Projection | All |
-
-#### GSI3 — User lookup
-
-| Field | Value |
-|---|---|
-| Index name | `GSI3` |
-| Partition key | `GSI3PK` (String) |
-| Sort key | `GSI3SK` (String) |
-| Projection | All |
-
-#### GSI4 — Inverted index / cross-entity
-
-| Field | Value |
-|---|---|
-| Index name | `GSI4` |
-| Partition key | `GSI4PK` (String) |
-| Sort key | `GSI4SK` (String) |
-| Projection | All |
-
-### 2.3 Table Access Patterns
-
-```
-Workspaces:   PK=WORKSPACE#{id}  SK=METADATA
-Members:      PK=WORKSPACE#{id}  SK=MEMBER#{userId}
-Projects:     PK=PROJECT#{id}    SK=METADATA
-Tasks:        PK=TASK#{id}       SK=METADATA
-Users:        PK=USER#{id}       SK=METADATA
-Files:        PK=FILE#{id}       SK=METADATA
-```
-
-### 2.4 Collect Values
-
-```env
-DYNAMODB_TABLE_NAME=projectsphere
-```
-
-### 2.5 CLI — Create Table with All GSIs
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `email-index` | `email` | — | Login (`getUserByEmail`) |
+| `cognitoSub-index` | `cognitoSub` | — | Post-auth user lookup |
 
 ```bash
 aws dynamodb create-table \
-  --table-name projectsphere \
+  --table-name projectsphere-users \
   --attribute-definitions \
-    AttributeName=PK,AttributeType=S \
-    AttributeName=SK,AttributeType=S \
-    AttributeName=GSI1PK,AttributeType=S \
-    AttributeName=GSI1SK,AttributeType=S \
-    AttributeName=GSI2PK,AttributeType=S \
-    AttributeName=GSI2SK,AttributeType=S \
-    AttributeName=GSI3PK,AttributeType=S \
-    AttributeName=GSI3SK,AttributeType=S \
-    AttributeName=GSI4PK,AttributeType=S \
-    AttributeName=GSI4SK,AttributeType=S \
-  --key-schema \
-    AttributeName=PK,KeyType=HASH \
-    AttributeName=SK,KeyType=RANGE \
+    AttributeName=userId,AttributeType=S \
+    AttributeName=email,AttributeType=S \
+    AttributeName=cognitoSub,AttributeType=S \
+  --key-schema AttributeName=userId,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
   --global-secondary-indexes '[
-    {
-      "IndexName": "GSI1",
-      "KeySchema": [
-        {"AttributeName": "GSI1PK","KeyType": "HASH"},
-        {"AttributeName": "GSI1SK","KeyType": "RANGE"}
-      ],
-      "Projection": {"ProjectionType": "ALL"}
-    },
-    {
-      "IndexName": "GSI2",
-      "KeySchema": [
-        {"AttributeName": "GSI2PK","KeyType": "HASH"},
-        {"AttributeName": "GSI2SK","KeyType": "RANGE"}
-      ],
-      "Projection": {"ProjectionType": "ALL"}
-    },
-    {
-      "IndexName": "GSI3",
-      "KeySchema": [
-        {"AttributeName": "GSI3PK","KeyType": "HASH"},
-        {"AttributeName": "GSI3SK","KeyType": "RANGE"}
-      ],
-      "Projection": {"ProjectionType": "ALL"}
-    },
-    {
-      "IndexName": "GSI4",
-      "KeySchema": [
-        {"AttributeName": "GSI4PK","KeyType": "HASH"},
-        {"AttributeName": "GSI4SK","KeyType": "RANGE"}
-      ],
-      "Projection": {"ProjectionType": "ALL"}
-    }
+    {"IndexName":"email-index","KeySchema":[{"AttributeName":"email","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}},
+    {"IndexName":"cognitoSub-index","KeySchema":[{"AttributeName":"cognitoSub","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}
   ]' \
-  --region us-east-1
+  --region us-east-2
 ```
 
 ---
 
-## 3. AWS S3 — File Storage
+### Table 2 — `projectsphere-workspaces`
 
-### 3.1 Create the Bucket
+Stores workspace metadata.
 
-1. Open [AWS Console → S3](https://console.aws.amazon.com/s3/)
-2. Click **Create bucket**
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `workspaceId` | String |
+
+**GSIs:**
+
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `slug-index` | `slug` | — | `getWorkspaceBySlug` |
+| `ownerId-index` | `ownerId` | — | Workspaces created by user |
+
+```bash
+aws dynamodb create-table \
+  --table-name projectsphere-workspaces \
+  --attribute-definitions \
+    AttributeName=workspaceId,AttributeType=S \
+    AttributeName=slug,AttributeType=S \
+    AttributeName=ownerId,AttributeType=S \
+  --key-schema AttributeName=workspaceId,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+    {"IndexName":"slug-index","KeySchema":[{"AttributeName":"slug","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}},
+    {"IndexName":"ownerId-index","KeySchema":[{"AttributeName":"ownerId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}
+  ]' \
+  --region us-east-2
+```
+
+---
+
+### Table 3 — `projectsphere-workspace-members`
+
+Maps users to workspaces with roles (owner / admin / member / viewer).
+
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `workspaceId` | String |
+| Sort key | `userId` | String |
+
+**GSI:**
+
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `userId-index` | `userId` | `workspaceId` | `getUserWorkspaces` (sidebar) |
+
+```bash
+aws dynamodb create-table \
+  --table-name projectsphere-workspace-members \
+  --attribute-definitions \
+    AttributeName=workspaceId,AttributeType=S \
+    AttributeName=userId,AttributeType=S \
+  --key-schema \
+    AttributeName=workspaceId,KeyType=HASH \
+    AttributeName=userId,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+    {"IndexName":"userId-index","KeySchema":[{"AttributeName":"userId","KeyType":"HASH"},{"AttributeName":"workspaceId","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}
+  ]' \
+  --region us-east-2
+```
+
+---
+
+### Table 4 — `projectsphere-projects`
+
+Stores project metadata inside a workspace.
+
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `projectId` | String |
+
+**GSI:**
+
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `workspaceId-index` | `workspaceId` | `createdAt` | `getWorkspaceProjects` (sidebar + dashboard) |
+
+```bash
+aws dynamodb create-table \
+  --table-name projectsphere-projects \
+  --attribute-definitions \
+    AttributeName=projectId,AttributeType=S \
+    AttributeName=workspaceId,AttributeType=S \
+    AttributeName=createdAt,AttributeType=S \
+  --key-schema AttributeName=projectId,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+    {"IndexName":"workspaceId-index","KeySchema":[{"AttributeName":"workspaceId","KeyType":"HASH"},{"AttributeName":"createdAt","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}
+  ]' \
+  --region us-east-2
+```
+
+---
+
+### Table 5 — `projectsphere-project-members`
+
+Maps users to projects with roles.
+
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `projectId` | String |
+| Sort key | `userId` | String |
+
+**GSI:**
+
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `userId-index` | `userId` | `projectId` | `getUserProjects` |
+
+```bash
+aws dynamodb create-table \
+  --table-name projectsphere-project-members \
+  --attribute-definitions \
+    AttributeName=projectId,AttributeType=S \
+    AttributeName=userId,AttributeType=S \
+  --key-schema \
+    AttributeName=projectId,KeyType=HASH \
+    AttributeName=userId,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+    {"IndexName":"userId-index","KeySchema":[{"AttributeName":"userId","KeyType":"HASH"},{"AttributeName":"projectId","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}
+  ]' \
+  --region us-east-2
+```
+
+---
+
+### Table 6 — `projectsphere-tasks`
+
+Stores tasks. Powers the Kanban board, list view, and subtasks.
+
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `taskId` | String |
+
+**GSIs:**
+
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `projectId-status-index` | `projectId` | `status` | Kanban columns per project |
+| `assigneeId-index` | `assigneeId` | `dueDate` | My tasks + due-date sorting |
+| `parentTaskId-index` | `parentTaskId` | — | Subtask lookup |
+
+```bash
+aws dynamodb create-table \
+  --table-name projectsphere-tasks \
+  --attribute-definitions \
+    AttributeName=taskId,AttributeType=S \
+    AttributeName=projectId,AttributeType=S \
+    AttributeName=status,AttributeType=S \
+    AttributeName=assigneeId,AttributeType=S \
+    AttributeName=dueDate,AttributeType=S \
+    AttributeName=parentTaskId,AttributeType=S \
+  --key-schema AttributeName=taskId,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+    {"IndexName":"projectId-status-index","KeySchema":[{"AttributeName":"projectId","KeyType":"HASH"},{"AttributeName":"status","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}},
+    {"IndexName":"assigneeId-index","KeySchema":[{"AttributeName":"assigneeId","KeyType":"HASH"},{"AttributeName":"dueDate","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}},
+    {"IndexName":"parentTaskId-index","KeySchema":[{"AttributeName":"parentTaskId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}
+  ]' \
+  --region us-east-2
+```
+
+---
+
+### Table 7 — `projectsphere-invitations`
+
+Workspace invite links sent via email. Expire after 7 days.
+
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `invitationId` | String |
+
+**GSIs:**
+
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `token-index` | `token` | — | Accept invite by token (`/join/[token]`) |
+| `workspaceId-index` | `workspaceId` | `createdAt` | List pending invites in settings |
+
+```bash
+aws dynamodb create-table \
+  --table-name projectsphere-invitations \
+  --attribute-definitions \
+    AttributeName=invitationId,AttributeType=S \
+    AttributeName=token,AttributeType=S \
+    AttributeName=workspaceId,AttributeType=S \
+    AttributeName=createdAt,AttributeType=S \
+  --key-schema AttributeName=invitationId,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+    {"IndexName":"token-index","KeySchema":[{"AttributeName":"token","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}},
+    {"IndexName":"workspaceId-index","KeySchema":[{"AttributeName":"workspaceId","KeyType":"HASH"},{"AttributeName":"createdAt","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}
+  ]' \
+  --region us-east-2
+```
+
+---
+
+### Table 8 — `projectsphere-files`
+
+Metadata for files uploaded to S3 (task/project attachments, avatars).
+
+| Key | Attribute | Type |
+|---|---|---|
+| Partition key | `fileId` | String |
+
+**GSI:**
+
+| Index | PK | SK | Used for |
+|---|---|---|---|
+| `entityId-index` | `entityId` | `createdAt` | All files attached to a task or project |
+
+```bash
+aws dynamodb create-table \
+  --table-name projectsphere-files \
+  --attribute-definitions \
+    AttributeName=fileId,AttributeType=S \
+    AttributeName=entityId,AttributeType=S \
+    AttributeName=createdAt,AttributeType=S \
+  --key-schema AttributeName=fileId,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+    {"IndexName":"entityId-index","KeySchema":[{"AttributeName":"entityId","KeyType":"HASH"},{"AttributeName":"createdAt","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}
+  ]' \
+  --region us-east-2
+```
+
+---
+
+### 3.9 Verify All Tables
+
+```bash
+# List — should show all 8 tables
+aws dynamodb list-tables --region us-east-2 --output table
+
+# Verify each table's status and GSI names
+for table in projectsphere-users projectsphere-workspaces projectsphere-workspace-members \
+             projectsphere-projects projectsphere-project-members projectsphere-tasks \
+             projectsphere-invitations projectsphere-files; do
+  echo "--- $table ---"
+  aws dynamodb describe-table \
+    --table-name $table \
+    --query 'Table.{Status:TableStatus,GSIs:GlobalSecondaryIndexes[*].IndexName}' \
+    --region us-east-2
+done
+```
+
+---
+
+## 4. S3 — File Storage
+
+Stores task attachments, project files, and user avatars. All access is via **presigned URLs** — the bucket stays private.
+
+### 4.1 Create Bucket
+
+1. Open [S3 → Create bucket](https://console.aws.amazon.com/s3/)
 
 | Setting | Value |
 |---|---|
-| Bucket name | `projectsphere-files-{your-account-id}` |
-| AWS Region | Same as your app (e.g., `us-east-1`) |
+| Bucket name | `projectsphere-files` |
+| Region | `us-east-2` |
 | Object Ownership | ACLs disabled |
-| Block all public access | ✅ **Keep blocked** (use presigned URLs) |
-| Versioning | Disabled (enable for production) |
-| Default encryption | SSE-S3 |
+| Block all public access | ✅ ON (keep all 4 blocked) |
+| Versioning | Off (enable in production) |
+| Encryption | SSE-S3 (AES-256) |
 
-### 3.2 Configure CORS
+### 4.2 Configure CORS
 
-In the bucket → **Permissions** → **Cross-origin resource sharing (CORS)**:
+Bucket → **Permissions** → **CORS** → paste:
 
 ```json
 [
@@ -269,287 +534,198 @@ In the bucket → **Permissions** → **Cross-origin resource sharing (CORS)**:
 ]
 ```
 
-### 3.3 Bucket Policy (optional — if using CloudFront)
-
-For production with CloudFront, restrict direct S3 access:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowCloudFrontServicePrincipal",
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "cloudfront.amazonaws.com"
-      },
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::projectsphere-files-{account-id}/*"
-    }
-  ]
-}
-```
-
-### 3.4 Collect Values
-
-```env
-AWS_S3_BUCKET_NAME=projectsphere-files-123456789012
-AWS_S3_REGION=us-east-1
-```
-
-### 3.5 CLI — Create Bucket
+### 4.3 CLI
 
 ```bash
 # Create bucket
 aws s3api create-bucket \
-  --bucket projectsphere-files-$(aws sts get-caller-identity --query Account --output text) \
-  --region us-east-1
+  --bucket projectsphere-files \
+  --region us-east-2 \
+  --create-bucket-configuration LocationConstraint=us-east-2
 
-# Block public access
+# Block all public access
 aws s3api put-public-access-block \
-  --bucket projectsphere-files-ACCOUNT_ID \
+  --bucket projectsphere-files \
   --public-access-block-configuration \
     "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 
 # Apply CORS
 aws s3api put-bucket-cors \
-  --bucket projectsphere-files-ACCOUNT_ID \
+  --bucket projectsphere-files \
   --cors-configuration '{
     "CORSRules": [{
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["GET","PUT","POST","DELETE","HEAD"],
-      "AllowedOrigins": ["http://localhost:3000"],
+      "AllowedOrigins": ["http://localhost:3000","https://yourdomain.com"],
       "ExposeHeaders": ["ETag"],
       "MaxAgeSeconds": 3600
     }]
   }'
 ```
 
+### 4.4 Env vars
+
+```env
+AWS_S3_BUCKET_NAME=projectsphere-files
+AWS_S3_REGION=us-east-2
+NEXT_PUBLIC_AWS_S3_BUCKET_NAME=projectsphere-files
+NEXT_PUBLIC_AWS_S3_REGION=us-east-2
+```
+
 ---
 
-## 4. AWS SES — Email Service (Invitations)
+## 5. SES — Email (Invitations)
 
-ProjectSphere uses SES to send workspace invitation emails.
+Used to send workspace invite emails. ProjectSphere uses **SMTP credentials** (not the SDK directly).
 
-### 4.1 Verify a Sender Email (Sandbox Mode)
+### 5.1 Verify Sender Identity
 
-In sandbox mode, **both sender and recipient** must be verified.
-
-1. Open [AWS Console → SES](https://console.aws.amazon.com/ses/)
-2. Click **Verified identities → Create identity**
-3. Choose **Email address**, enter `noreply@yourdomain.com`
+1. Open [SES → Verified identities → Create identity](https://console.aws.amazon.com/ses/)
+2. Choose **Email address**
+3. Enter your from-address (e.g. `noreply@yourdomain.com`)
 4. Click the verification link sent to that address
 
-### 4.2 Verify Your Domain (Production)
+> In **sandbox mode** (default), both the sender AND recipient must be verified. Request production access to remove this restriction.
 
-1. Add **Email address** or **Domain** identity
-2. Add the DKIM CNAME records to your DNS provider
-3. Wait for verification (can take up to 72 hours)
+### 5.2 Create SMTP Credentials
 
-### 4.3 Move Out of Sandbox (Production)
+1. Open [SES → SMTP settings → Create SMTP credentials](https://console.aws.amazon.com/ses/home#/smtp)
+2. IAM username: `ses-smtp-user.projectsphere`
+3. Click **Create** — download the SMTP credentials
 
-By default SES is in sandbox mode (can only send to verified emails). For production:
-1. Open **SES → Account dashboard → Request production access**
-2. Explain your use case (transactional invitation emails)
-3. AWS approves within 24 hours
-
-### 4.4 CLI — Verify Email Address
-
-```bash
-aws ses verify-email-identity \
-  --email-address noreply@yourdomain.com \
-  --region us-east-1
+The SMTP endpoint for `us-east-2` is:
+```
+email-smtp.us-east-2.amazonaws.com:587
 ```
 
-### 4.5 Environment Variable
+### 5.3 Request Production Access (when ready)
+
+SES sandbox limits you to verified emails only.
+
+1. SES → **Account dashboard → Request production access**
+2. Use case: transactional (invitation emails)
+3. Approval usually within 24 hours
+
+### 5.4 Env vars
 
 ```env
-SES_FROM_EMAIL=noreply@yourdomain.com
+NEXT_AWS_STMP=<SMTP Access Key ID>
+NEXT_AWS_STMP_PASSWORD=<SMTP Secret>
+NEXT_AWS_STMP_IAM_USERNAME=ses-smtp-user.projectsphere
+NEXT_AWS_SES_FROM_EMAIL=noreply@yourdomain.com
 ```
 
 ---
 
-## 5. IAM — Service Credentials
+## 6. Complete Environment Variables
 
-### 5.1 Create an IAM User for the Application
-
-1. Open [AWS Console → IAM](https://console.aws.amazon.com/iam/)
-2. Click **Users → Create user**
-3. Name: `projectsphere-app`
-4. **Access type**: Programmatic access only
-5. Attach the policy below
-
-### 5.2 IAM Policy
-
-Create a new policy named `ProjectSphereAppPolicy`:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "DynamoDBAccess",
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query",
-        "dynamodb:Scan",
-        "dynamodb:BatchGetItem",
-        "dynamodb:BatchWriteItem",
-        "dynamodb:TransactWriteItems"
-      ],
-      "Resource": [
-        "arn:aws:dynamodb:us-east-1:*:table/projectsphere",
-        "arn:aws:dynamodb:us-east-1:*:table/projectsphere/index/*"
-      ]
-    },
-    {
-      "Sid": "S3Access",
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:GetObjectAttributes"
-      ],
-      "Resource": "arn:aws:s3:::projectsphere-files-*/*"
-    },
-    {
-      "Sid": "S3PresignedUrls",
-      "Effect": "Allow",
-      "Action": [
-        "s3:ListBucket"
-      ],
-      "Resource": "arn:aws:s3:::projectsphere-files-*"
-    },
-    {
-      "Sid": "SESAccess",
-      "Effect": "Allow",
-      "Action": [
-        "ses:SendEmail",
-        "ses:SendRawEmail"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-### 5.3 Collect Credentials
-
-After creating the user, download the **Access Key ID** and **Secret Access Key**:
+Full `.env.local` reference — fill in every value:
 
 ```env
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-AWS_REGION=us-east-1
-```
-
-> **Security tip**: In production, prefer **IAM Roles** (EC2/ECS instance profiles or Lambda execution roles) over long-lived access keys.
-
----
-
-## 6. Environment Variables Summary
-
-Copy `.env.example` to `.env.local` and fill in all values:
-
-```env
-# App
+# ─── App ─────────────────────────────────────────────────────
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# AWS Region
-NEXT_PUBLIC_AWS_REGION=us-east-1
-AWS_REGION=us-east-1
+# ─── AWS ─────────────────────────────────────────────────────
+AWS_REGION=us-east-2
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
 
-# AWS Credentials (use IAM roles in production)
-AWS_ACCESS_KEY_ID=your_access_key_id
-AWS_SECRET_ACCESS_KEY=your_secret_access_key
-
-# Cognito
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_XXXXXXXXX
+# ─── Cognito ─────────────────────────────────────────────────
+NEXT_PUBLIC_AWS_REGION=us-east-2
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-2_XXXXXXXXX
 NEXT_PUBLIC_COGNITO_CLIENT_ID=XXXXXXXXXXXXXXXXXXXXXXXXXX
-COGNITO_JWKS_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX/.well-known/jwks.json
+NEXT_PUBLIC_COGNITO_DOMAIN=https://us-east-2xxxxxxxxx.auth.us-east-2.amazoncognito.com
 
-# DynamoDB
-DYNAMODB_TABLE_NAME=projectsphere
+# ─── DynamoDB ────────────────────────────────────────────────
+DYNAMODB_USERS_TABLE=projectsphere-users
+DYNAMODB_WORKSPACES_TABLE=projectsphere-workspaces
+DYNAMODB_WORKSPACE_MEMBERS_TABLE=projectsphere-workspace-members
+DYNAMODB_PROJECTS_TABLE=projectsphere-projects
+DYNAMODB_PROJECT_MEMBERS_TABLE=projectsphere-project-members
+DYNAMODB_TASKS_TABLE=projectsphere-tasks
+DYNAMODB_INVITATIONS_TABLE=projectsphere-invitations
+DYNAMODB_FILES_TABLE=projectsphere-files
 
-# S3
-AWS_S3_BUCKET_NAME=projectsphere-files-123456789012
-AWS_S3_REGION=us-east-1
+# ─── S3 ──────────────────────────────────────────────────────
+AWS_S3_BUCKET_NAME=projectsphere-files
+AWS_S3_REGION=us-east-2
+NEXT_PUBLIC_AWS_S3_BUCKET_NAME=projectsphere-files
+NEXT_PUBLIC_AWS_S3_REGION=us-east-2
 
-# SES (email invitations)
-SES_FROM_EMAIL=noreply@yourdomain.com
+# ─── SES (SMTP) ──────────────────────────────────────────────
+NEXT_AWS_STMP=AKIA...
+NEXT_AWS_STMP_PASSWORD=...
+NEXT_AWS_STMP_IAM_USERNAME=ses-smtp-user.projectsphere
+NEXT_AWS_SES_FROM_EMAIL=noreply@yourdomain.com
 ```
 
 ---
 
 ## 7. Verification Checklist
 
-Run these commands to verify everything is set up correctly:
+Run after setup to confirm everything is working:
 
 ```bash
-# Test DynamoDB connection
-aws dynamodb describe-table --table-name projectsphere --region us-east-1
-
-# Verify all 4 GSIs exist
-aws dynamodb describe-table --table-name projectsphere \
-  --query 'Table.GlobalSecondaryIndexes[*].IndexName' \
-  --output text
-
-# Test S3 bucket
-aws s3 ls s3://projectsphere-files-ACCOUNT_ID
-
-# Verify Cognito user pool
+# ── Cognito ──────────────────────────────────────────────────
 aws cognito-idp describe-user-pool \
-  --user-pool-id us-east-1_XXXXXXXXX \
-  --region us-east-1
+  --user-pool-id us-east-2_XXXXXXXXX \
+  --region us-east-2 \
+  --query 'UserPool.{Name:Name,Status:Status}'
+
+# ── DynamoDB — list all 8 tables ─────────────────────────────
+aws dynamodb list-tables --region us-east-2
+
+# ── DynamoDB — tasks table GSIs ──────────────────────────────
+aws dynamodb describe-table \
+  --table-name projectsphere-tasks \
+  --region us-east-2 \
+  --query 'Table.GlobalSecondaryIndexes[*].{Name:IndexName,Status:IndexStatus}'
+
+# ── S3 ───────────────────────────────────────────────────────
+aws s3api head-bucket --bucket projectsphere-files --region us-east-2
+
+# ── SES — check verified identities ─────────────────────────
+aws ses list-identities --region us-east-2
+
+# ── IAM — check policy attached ──────────────────────────────
+aws iam list-attached-user-policies --user-name projectsphere-app
 ```
-
-### Start the Development Server
-
-```bash
-npm install
-cp .env.example .env.local
-# Fill in .env.local with your values
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to see the app.
 
 ---
 
-## 8. Architecture Overview
+## 8. Architecture
 
 ```
 Browser
   │
-  ├── Auth: AWS Cognito (SRP auth, JWT tokens)
-  │         └── Tokens stored in memory (zustand)
+  ├─ Auth: AWS Cognito (SRP flow → JWT tokens in Zustand)
   │
-  ├── API: Next.js App Router (/api/*)
-  │         ├── Verify JWT via JWKS endpoint
-  │         ├── DynamoDB (data storage)
-  │         └── S3 presigned URLs (file uploads)
+  ├─ API: Next.js /api/* routes
+  │        ├─ Verify JWT (Cognito JWKS endpoint)
+  │        ├─ DynamoDB (8 tables — users, workspaces, projects, tasks …)
+  │        └─ SES SMTP (invitation emails)
   │
-  └── File Upload Flow:
-        1. Client → POST /api/uploads (get presigned URL)
-        2. Client → PUT {presigned-url} (upload directly to S3)
-        3. Client → POST /api/uploads/{fileId}/confirm (register metadata)
+  └─ Files:
+       1. Client → POST /api/uploads          → get S3 presigned PUT URL
+       2. Client → PUT  {presigned-url}        → upload directly to S3
+       3. Client → POST /api/uploads/[fileId]  → save metadata to DynamoDB
+       4. Client → GET  /api/uploads/[fileId]  → get presigned GET URL to view
 ```
 
 ---
 
-## 9. Production Recommendations
+## 9. Production Checklist
 
-| Area | Recommendation |
+| Area | Action |
 |---|---|
-| Auth | Enable MFA in Cognito |
-| DynamoDB | Enable Point-in-Time Recovery (PITR) |
-| S3 | Enable versioning + lifecycle rules |
-| IAM | Use IAM roles instead of access keys |
-| Monitoring | Enable CloudWatch alarms for DynamoDB throttling |
-| CDN | Put CloudFront in front of S3 for file serving |
-| Secrets | Use AWS Secrets Manager or Parameter Store for env vars |
+| Cognito | Enable MFA (TOTP or SMS) |
+| Cognito | Configure SES for email delivery (remove 50/day sandbox limit) |
+| DynamoDB | Enable Point-in-Time Recovery (PITR) on all 8 tables |
+| DynamoDB | Set up CloudWatch alarms for throttling |
+| S3 | Enable versioning |
+| S3 | Add lifecycle rule to delete incomplete multipart uploads after 7 days |
+| S3 | Put CloudFront in front for fast file delivery |
+| SES | Request production access (remove sandbox restriction) |
+| IAM | Replace access keys with IAM Role (ECS/EC2 instance profile) |
+| Secrets | Move credentials to AWS Secrets Manager |
+| Monitoring | Enable AWS CloudTrail for audit logging |

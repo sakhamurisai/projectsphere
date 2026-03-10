@@ -1,7 +1,10 @@
 import { nanoid } from "nanoid";
 import { putItem, queryItems, queryByIndex, deleteItem } from "../operations";
+import { TABLES } from "../client";
 import { deleteS3Object } from "@/lib/storage/s3";
 import type { FileAttachment, FileAttachmentDBItem } from "@/types/file";
+
+const T = TABLES.FILES;
 
 function createEntityPK(entityType: string, entityId: string): string {
   return `${entityType.toUpperCase()}#${entityId}`;
@@ -16,8 +19,8 @@ function createFileGSI1PK(fileId: string): string {
 }
 
 function dbItemToFile(item: FileAttachmentDBItem): FileAttachment {
-  const region = process.env.AWS_S3_REGION || process.env.AWS_REGION || "us-east-1";
-  const bucket = process.env.AWS_S3_BUCKET_NAME || "projectsphere-files";
+  const region = process.env.NEXT_PUBLIC_AWS_S3_REGION || "us-east-2";
+  const bucket = process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME || "projectsphere-files";
 
   return {
     id: item.id,
@@ -61,12 +64,13 @@ export async function createFileRecord(input: {
     createdAt: now,
   };
 
-  await putItem(item);
+  await putItem(T, item);
   return dbItemToFile(item);
 }
 
 export async function getFileById(fileId: string): Promise<FileAttachment | null> {
   const { items } = await queryByIndex<FileAttachmentDBItem>(
+    T,
     "GSI1",
     "GSI1PK",
     createFileGSI1PK(fileId),
@@ -83,6 +87,7 @@ export async function getEntityFiles(
   entityId: string
 ): Promise<FileAttachment[]> {
   const { items } = await queryItems<FileAttachmentDBItem>(
+    T,
     createEntityPK(entityType, entityId),
     "FILE#"
   );
@@ -98,6 +103,7 @@ export async function deleteFileRecord(
   if (!file) return;
 
   await deleteItem(
+    T,
     createEntityPK(file.entityType, file.entityId),
     createFileSK(fileId)
   );
