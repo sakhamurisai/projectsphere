@@ -16,11 +16,7 @@ export interface Invitation {
 }
 
 export interface InvitationDBItem extends Record<string, unknown> {
-  PK: string;
-  SK: string;
-  GSI2PK: string;
-  GSI2SK: string;
-  id: string;
+  invitationId: string;
   workspaceId: string;
   workspaceName: string;
   email: string;

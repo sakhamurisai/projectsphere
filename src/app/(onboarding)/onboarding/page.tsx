@@ -331,8 +331,8 @@ export default function OnboardingPage() {
 
             <div className="mt-8 grid grid-cols-2 gap-4 text-left">
               {[
-                { title: "Create a project", desc: "Organize tasks into projects with Kanban boards", href: workspaceId ? `/workspaces/${workspaceId}/projects/new` : "/" },
-                { title: "Explore the board", desc: "Drag & drop tasks across status columns", href: workspaceId ? `/workspaces/${workspaceId}` : "/" },
+                { title: "Create a project", desc: "Organize tasks into projects with Kanban boards", href: workspaceId ? `/dashboard/workspaces/${workspaceId}/projects/new` : "/" },
+                { title: "Explore the board", desc: "Drag & drop tasks across status columns", href: workspaceId ? `/dashboard/workspaces/${workspaceId}` : "/" },
               ].map((item) => (
                 <div key={item.title} className="rounded-xl border p-4">
                   <h3 className="font-semibold text-sm">{item.title}</h3>
@@ -344,7 +344,7 @@ export default function OnboardingPage() {
             <Button
               className="mt-8 h-11 px-8 text-base font-semibold"
               onClick={() =>
-                router.push(workspaceId ? `/workspaces/${workspaceId}` : "/")
+                router.push(workspaceId ? `/dashboard/workspaces/${workspaceId}` : "/dashboard")
               }
             >
               Go to Dashboard

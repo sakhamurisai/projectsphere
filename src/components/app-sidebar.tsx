@@ -5,7 +5,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { useParams, usePathname, useRouter } from "next/navigation"
 import {
-  Home,
   Users,
   Settings,
   Plus,
@@ -93,7 +92,7 @@ function WorkspaceSwitcher({
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" asChild>
-            <Link href="/workspaces/new">
+            <Link href="/dashboard/workspaces/new">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
                 <Plus className="size-4" />
               </div>
@@ -138,7 +137,7 @@ function WorkspaceSwitcher({
             {workspaces.map((w, i) => (
               <DropdownMenuItem
                 key={w.id}
-                onClick={() => { onSelect(w); router.push(`/workspaces/${w.id}`) }}
+                onClick={() => { onSelect(w); router.push(`/dashboard/workspaces/${w.id}`) }}
                 className="gap-2 p-2"
               >
                 <div className={`flex size-6 shrink-0 items-center justify-center rounded-sm ${wsColor(w.name)} text-white text-[10px] font-bold`}>
@@ -150,7 +149,7 @@ function WorkspaceSwitcher({
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="gap-2 p-2">
-              <Link href="/workspaces/new">
+              <Link href="/dashboard/workspaces/new">
                 <div className="flex size-6 items-center justify-center rounded-md border border-dashed">
                   <Plus className="size-3.5" />
                 </div>
@@ -169,11 +168,11 @@ function NavMain({ workspaceId }: { workspaceId: string }) {
   const pathname = usePathname()
 
   const items = [
-    { label: "Home",     href: "/",                                                    icon: Home },
-    { label: "Overview", href: workspaceId ? `/workspaces/${workspaceId}` : "/workspaces", icon: LayoutDashboard },
-    { label: "All Tasks",href: workspaceId ? `/workspaces/${workspaceId}/tasks` : "#", icon: CheckSquare },
-    { label: "Members",  href: workspaceId ? `/workspaces/${workspaceId}/members` : "#", icon: Users },
-    { label: "Settings", href: workspaceId ? `/workspaces/${workspaceId}/settings` : "#", icon: Settings },
+                                                      
+    { label: "Overview", href: workspaceId ? `/dashboard/workspaces/${workspaceId}` : "/dashboard/workspaces", icon: LayoutDashboard },
+    { label: "All Tasks",href: workspaceId ? `/dashboard/workspaces/${workspaceId}/tasks` : "#", icon: CheckSquare },
+    { label: "Members",  href: workspaceId ? `/dashboard/workspaces/${workspaceId}/members` : "#", icon: Users },
+    { label: "Settings", href: workspaceId ? `/dashboard/workspaces/${workspaceId}/settings` : "#", icon: Settings },
   ]
 
   return (
@@ -184,7 +183,7 @@ function NavMain({ workspaceId }: { workspaceId: string }) {
           const active =
             pathname === item.href ||
             (item.href !== "/" &&
-              item.href !== `/workspaces/${workspaceId}` &&
+              item.href !== `/dashboard/workspaces/${workspaceId}` &&
               pathname.startsWith(item.href))
           return (
             <SidebarMenuItem key={item.label}>
@@ -209,14 +208,16 @@ function NavProjects({ workspaceId }: { workspaceId: string }) {
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pr-2">
         <SidebarGroupLabel>Projects</SidebarGroupLabel>
-        <SidebarMenuAction asChild showOnHover>
-          <Link href={`/workspaces/${workspaceId}/projects/new`} title="New project">
-            <Plus className="size-3.5" />
-            <span className="sr-only">New project</span>
-          </Link>
-        </SidebarMenuAction>
+        <Link
+          href={`/dashboard/workspaces/${workspaceId}/projects/new`}
+          title="New project"
+          className="flex items-center justify-center rounded-md p-0.5 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="sr-only">New project</span>
+        </Link>
       </div>
 
       <SidebarMenu>
@@ -234,8 +235,8 @@ function NavProjects({ workspaceId }: { workspaceId: string }) {
         ) : projects.length === 0 ? (
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground">
-              <Link href={`/workspaces/${workspaceId}/projects/new`}>
-                <Plus className="size-4" />
+              <Link href={`/dashboard/workspaces/${workspaceId}/projects/new`}>
+                <Plus className="w-4 h-4 bg-primary text-primary-foreground" />
                 <span>Create first project</span>
               </Link>
             </SidebarMenuButton>
@@ -246,7 +247,7 @@ function NavProjects({ workspaceId }: { workspaceId: string }) {
             return (
               <SidebarMenuItem key={project.id}>
                 <SidebarMenuButton asChild isActive={active} tooltip={project.name}>
-                  <Link href={`/workspaces/${workspaceId}/projects/${project.id}/board`}>
+                  <Link href={`/dashboard/workspaces/${workspaceId}/projects/${project.id}/board`}>
                     <span className={`size-2 shrink-0 rounded-full ${projectColor(project.id)}`} />
                     <span className="truncate">{project.name}</span>
                     <span className="ml-auto font-mono text-[10px] text-muted-foreground/50">

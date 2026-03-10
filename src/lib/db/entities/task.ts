@@ -1,361 +1,162 @@
 import { nanoid } from "nanoid";
-import { getItem, putItem, updateItem, deleteItem, queryItems, queryByIndex, batchWriteItems } from "../operations";
-import { TABLES } from "../client";
+import { GetCommand, PutCommand, UpdateCommand, DeleteCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { dynamodb, TABLES } from "../client";
 import { getUserById } from "./user";
 import { getProjectById, incrementProjectTaskCount, decrementProjectTaskCount } from "./project";
-import type {
-  Task,
-  TaskCreateInput,
-  TaskUpdateInput,
-  TaskStatus,
-  TaskDBItem,
-  TaskFilters
-} from "@/types/task";
+import type { Task, TaskCreateInput, TaskUpdateInput, TaskStatus, TaskFilters } from "@/types/task";
 
+// projectsphere-tasks | Key: { taskId }
+// GSI: assigneeId-index (assigneeId), parentTaskId-index (parentTaskId), projectId-status-index (projectId HASH, status RANGE)
 const T = TABLES.TASKS;
 
-export function createProjectPK(projectId: string): string {
-  return `PROJECT#${projectId}`;
-}
-
-export function createTaskSK(taskId: string): string {
-  return `TASK#${taskId}`;
-}
-
-export function createTaskPK(taskId: string): string {
-  return `TASK#${taskId}`;
-}
-
-export function createAssigneeGSI(assigneeId?: string): string {
-  return assigneeId ? `ASSIGNEE#${assigneeId}` : "UNASSIGNED";
-}
-
-export function createDueDateGSI(dueDate?: string): string {
-  return `DUEDATE#${dueDate || "9999-12-31"}`;
-}
-
-export function createStatusOrderGSI(projectId: string, status: TaskStatus): string {
-  return `PROJECT#${projectId}#STATUS#${status}`;
-}
-
-export function createOrderGSI(order: number): string {
-  return `ORDER#${order.toString().padStart(10, "0")}`;
-}
-
-function dbItemToTask(item: TaskDBItem): Task {
+function toTask(i: Record<string, unknown>): Task {
   return {
-    id: item.id,
-    projectId: item.projectId,
-    workspaceId: item.workspaceId,
-    title: item.title,
-    description: item.description,
-    status: item.status,
-    priority: item.priority,
-    assigneeId: item.assigneeId,
-    reporterId: item.reporterId,
-    dueDate: item.dueDate,
-    labels: item.labels || [],
-    parentTaskId: item.parentTaskId,
-    order: item.order,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
+    id: i.taskId as string,
+    projectId: i.projectId as string,
+    workspaceId: i.workspaceId as string,
+    title: i.title as string,
+    description: i.description as string | undefined,
+    status: i.status as TaskStatus,
+    priority: i.priority as Task["priority"],
+    assigneeId: i.assigneeId as string | undefined,
+    reporterId: i.reporterId as string,
+    dueDate: i.dueDate as string | undefined,
+    labels: (i.labels as string[]) || [],
+    parentTaskId: i.parentTaskId as string | undefined,
+    order: (i.order as number) ?? 0,
+    createdAt: i.createdAt as string,
+    updatedAt: i.updatedAt as string,
   };
 }
 
-async function enrichTaskWithUsers(task: Task): Promise<Task> {
+async function enrichTask(task: Task): Promise<Task> {
   if (task.assigneeId) {
     const assignee = await getUserById(task.assigneeId);
-    if (assignee) {
-      task.assignee = {
-        id: assignee.id,
-        name: assignee.name,
-        email: assignee.email,
-        avatarUrl: assignee.avatarUrl,
-      };
-    }
+    if (assignee) task.assignee = { id: assignee.id, name: assignee.name, email: assignee.email, avatarUrl: assignee.avatarUrl };
   }
-
   const reporter = await getUserById(task.reporterId);
-  if (reporter) {
-    task.reporter = {
-      id: reporter.id,
-      name: reporter.name,
-      email: reporter.email,
-      avatarUrl: reporter.avatarUrl,
-    };
-  }
-
+  if (reporter) task.reporter = { id: reporter.id, name: reporter.name, email: reporter.email, avatarUrl: reporter.avatarUrl };
   return task;
 }
 
-export async function createTask(
-  projectId: string,
-  input: TaskCreateInput,
-  reporterId: string
-): Promise<Task> {
-  const project = await getProjectById(projectId);
-  if (!project) {
-    throw new Error("Project not found");
-  }
+export async function getTaskById(taskId: string): Promise<Task | null> {
+  const res = await dynamodb.send(new GetCommand({ TableName: T, Key: { taskId } }));
+  if (!res.Item) return null;
+  return enrichTask(toTask(res.Item));
+}
 
-  const id = nanoid();
+export async function createTask(projectId: string, input: TaskCreateInput, reporterId: string): Promise<Task> {
+  const project = await getProjectById(projectId);
+  if (!project) throw new Error("Project not found");
+
+  const taskId = nanoid();
   const now = new Date().toISOString();
   const status = input.status || "todo";
   const priority = input.priority || "medium";
 
-  const { items: existingTasks } = await queryByIndex<TaskDBItem>(
-    T,
-    "GSI4",
-    "GSI4PK",
-    createStatusOrderGSI(projectId, status),
-    undefined,
-    undefined,
-    { scanIndexForward: false, limit: 1 }
-  );
+  // Get max order for this project+status
+  const { Items: existing = [] } = await dynamodb.send(new QueryCommand({
+    TableName: T,
+    IndexName: "projectId-status-index",
+    KeyConditionExpression: "projectId = :p AND #s = :s",
+    ExpressionAttributeNames: { "#s": "status" },
+    ExpressionAttributeValues: { ":p": projectId, ":s": status },
+    ScanIndexForward: false,
+    Limit: 1,
+  }));
+  const order = existing.length > 0 ? ((existing[0].order as number) ?? 0) + 1 : 0;
 
-  const order = existingTasks.length > 0 ? existingTasks[0].order + 1 : 0;
-
-  const item: TaskDBItem = {
-    PK: createProjectPK(projectId),
-    SK: createTaskSK(id),
-    GSI1PK: createTaskPK(id),
-    GSI1SK: "METADATA",
-    GSI2PK: createAssigneeGSI(input.assigneeId),
-    GSI2SK: createDueDateGSI(input.dueDate),
-    GSI4PK: createStatusOrderGSI(projectId, status),
-    GSI4SK: createOrderGSI(order),
-    id,
-    projectId,
-    workspaceId: project.workspaceId,
-    title: input.title,
-    description: input.description,
-    status,
-    priority,
-    assigneeId: input.assigneeId,
-    reporterId,
-    dueDate: input.dueDate,
-    labels: input.labels || [],
-    parentTaskId: input.parentTaskId,
-    order,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await putItem(T, item);
+  const item = { taskId, projectId, workspaceId: project.workspaceId, title: input.title, description: input.description, status, priority, assigneeId: input.assigneeId, reporterId, dueDate: input.dueDate, labels: input.labels || [], parentTaskId: input.parentTaskId, order, createdAt: now, updatedAt: now };
+  await dynamodb.send(new PutCommand({ TableName: T, Item: item }));
   await incrementProjectTaskCount(projectId);
-
-  const task = dbItemToTask(item);
-  return enrichTaskWithUsers(task);
-}
-
-export async function getTaskById(taskId: string): Promise<Task | null> {
-  const { items } = await queryByIndex<TaskDBItem>(
-    T,
-    "GSI1",
-    "GSI1PK",
-    createTaskPK(taskId),
-    "GSI1SK",
-    "METADATA"
-  );
-
-  if (items.length === 0) return null;
-
-  const task = dbItemToTask(items[0]);
-  return enrichTaskWithUsers(task);
+  return enrichTask(toTask(item));
 }
 
 export async function getProjectTasks(projectId: string, filters?: TaskFilters): Promise<Task[]> {
-  const { items } = await queryItems<TaskDBItem>(T, createProjectPK(projectId), "TASK#");
+  const { Items = [] } = await dynamodb.send(new QueryCommand({
+    TableName: T,
+    IndexName: "projectId-status-index",
+    KeyConditionExpression: "projectId = :p",
+    ExpressionAttributeValues: { ":p": projectId },
+  }));
 
-  let tasks = items.map(dbItemToTask);
+  let tasks = Items.map(toTask);
 
   if (filters) {
-    if (filters.status && filters.status.length > 0) {
-      tasks = tasks.filter((t) => filters.status!.includes(t.status));
-    }
-    if (filters.priority && filters.priority.length > 0) {
-      tasks = tasks.filter((t) => filters.priority!.includes(t.priority));
-    }
-    if (filters.assigneeId) {
-      tasks = tasks.filter((t) => t.assigneeId === filters.assigneeId);
-    }
+    if (filters.status?.length) tasks = tasks.filter(t => filters.status!.includes(t.status));
+    if (filters.priority?.length) tasks = tasks.filter(t => filters.priority!.includes(t.priority));
+    if (filters.assigneeId) tasks = tasks.filter(t => t.assigneeId === filters.assigneeId);
     if (filters.search) {
-      const search = filters.search.toLowerCase();
-      tasks = tasks.filter(
-        (t) =>
-          t.title.toLowerCase().includes(search) ||
-          t.description?.toLowerCase().includes(search)
-      );
+      const s = filters.search.toLowerCase();
+      tasks = tasks.filter(t => t.title.toLowerCase().includes(s) || t.description?.toLowerCase().includes(s));
     }
   }
 
   tasks.sort((a, b) => a.order - b.order);
-
-  return Promise.all(tasks.map(enrichTaskWithUsers));
+  return Promise.all(tasks.map(enrichTask));
 }
 
 export async function getTasksByStatus(projectId: string, status: TaskStatus): Promise<Task[]> {
-  const { items } = await queryByIndex<TaskDBItem>(
-    T,
-    "GSI4",
-    "GSI4PK",
-    createStatusOrderGSI(projectId, status)
-  );
-
-  const tasks = items.map(dbItemToTask);
-  return Promise.all(tasks.map(enrichTaskWithUsers));
+  const { Items = [] } = await dynamodb.send(new QueryCommand({
+    TableName: T,
+    IndexName: "projectId-status-index",
+    KeyConditionExpression: "projectId = :p AND #s = :s",
+    ExpressionAttributeNames: { "#s": "status" },
+    ExpressionAttributeValues: { ":p": projectId, ":s": status },
+  }));
+  return Promise.all(Items.map(toTask).map(enrichTask));
 }
 
 export async function updateTask(taskId: string, input: TaskUpdateInput): Promise<Task | null> {
-  const existingTask = await getTaskById(taskId);
-  if (!existingTask) return null;
-
-  const now = new Date().toISOString();
-  const updates: Record<string, unknown> = {
-    ...input,
-    updatedAt: now,
-  };
-
-  if (input.status && input.status !== existingTask.status) {
-    updates.GSI4PK = createStatusOrderGSI(existingTask.projectId, input.status);
-
-    if (input.order === undefined) {
-      const { items } = await queryByIndex<TaskDBItem>(
-        T,
-        "GSI4",
-        "GSI4PK",
-        createStatusOrderGSI(existingTask.projectId, input.status),
-        undefined,
-        undefined,
-        { scanIndexForward: false, limit: 1 }
-      );
-      const newOrder = items.length > 0 ? items[0].order + 1 : 0;
-      updates.order = newOrder;
-      updates.GSI4SK = createOrderGSI(newOrder);
-    }
-  }
-
-  if (input.order !== undefined) {
-    updates.GSI4SK = createOrderGSI(input.order);
-  }
-
-  if (input.assigneeId !== undefined) {
-    updates.GSI2PK = createAssigneeGSI(input.assigneeId || undefined);
-  }
-
-  if (input.dueDate !== undefined) {
-    updates.GSI2SK = createDueDateGSI(input.dueDate || undefined);
-  }
-
-  await updateItem(
-    T,
-    createProjectPK(existingTask.projectId),
-    createTaskSK(taskId),
-    updates
-  );
-
+  if (!(await getTaskById(taskId))) return null;
+  const fields = { ...input, updatedAt: new Date().toISOString() };
+  const names: Record<string, string> = {};
+  const values: Record<string, unknown> = {};
+  const exprs = Object.entries(fields).map(([k, v], i) => { names[`#a${i}`] = k; values[`:v${i}`] = v; return `#a${i} = :v${i}`; });
+  await dynamodb.send(new UpdateCommand({ TableName: T, Key: { taskId }, UpdateExpression: `SET ${exprs.join(", ")}`, ExpressionAttributeNames: names, ExpressionAttributeValues: values }));
   return getTaskById(taskId);
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
   const task = await getTaskById(taskId);
   if (!task) return;
-
-  await deleteItem(T, createProjectPK(task.projectId), createTaskSK(taskId));
+  await dynamodb.send(new DeleteCommand({ TableName: T, Key: { taskId } }));
   await decrementProjectTaskCount(task.projectId);
 
-  const { items: subtasks } = await queryItems<TaskDBItem>(
-    T,
-    createProjectPK(task.projectId),
-    "TASK#",
-    {
-      filterExpression: "parentTaskId = :parentId",
-      expressionAttributeValues: { ":parentId": taskId },
-    }
-  );
-
-  if (subtasks.length > 0) {
-    await batchWriteItems(
-      T,
-      subtasks.map((st) => ({ delete: { pk: st.PK, sk: st.SK } }))
-    );
+  // Delete subtasks
+  const { Items: subtasks = [] } = await dynamodb.send(new QueryCommand({
+    TableName: T,
+    IndexName: "parentTaskId-index",
+    KeyConditionExpression: "parentTaskId = :p",
+    ExpressionAttributeValues: { ":p": taskId },
+  }));
+  for (const st of subtasks) {
+    await dynamodb.send(new DeleteCommand({ TableName: T, Key: { taskId: st.taskId } }));
   }
 }
 
-export async function reorderTask(
-  taskId: string,
-  newStatus: TaskStatus,
-  newOrder: number
-): Promise<Task | null> {
-  const task = await getTaskById(taskId);
-  if (!task) return null;
-
-  const updates: Record<string, unknown> = {
-    status: newStatus,
-    order: newOrder,
-    GSI4PK: createStatusOrderGSI(task.projectId, newStatus),
-    GSI4SK: createOrderGSI(newOrder),
-    updatedAt: new Date().toISOString(),
-  };
-
-  await updateItem(
-    T,
-    createProjectPK(task.projectId),
-    createTaskSK(taskId),
-    updates
-  );
-
+export async function reorderTask(taskId: string, newStatus: TaskStatus, newOrder: number): Promise<Task | null> {
+  if (!(await getTaskById(taskId))) return null;
+  await dynamodb.send(new UpdateCommand({ TableName: T, Key: { taskId }, UpdateExpression: "SET #s = :s, #o = :o, updatedAt = :u", ExpressionAttributeNames: { "#s": "status", "#o": "order" }, ExpressionAttributeValues: { ":s": newStatus, ":o": newOrder, ":u": new Date().toISOString() } }));
   return getTaskById(taskId);
 }
 
 export async function getSubtasks(parentTaskId: string): Promise<Task[]> {
-  const task = await getTaskById(parentTaskId);
-  if (!task) return [];
-
-  const { items } = await queryItems<TaskDBItem>(
-    T,
-    createProjectPK(task.projectId),
-    "TASK#",
-    {
-      filterExpression: "parentTaskId = :parentId",
-      expressionAttributeValues: { ":parentId": parentTaskId },
-    }
-  );
-
-  const subtasks = items.map(dbItemToTask);
-  return Promise.all(subtasks.map(enrichTaskWithUsers));
+  const { Items = [] } = await dynamodb.send(new QueryCommand({
+    TableName: T,
+    IndexName: "parentTaskId-index",
+    KeyConditionExpression: "parentTaskId = :p",
+    ExpressionAttributeValues: { ":p": parentTaskId },
+  }));
+  return Promise.all(Items.map(toTask).map(enrichTask));
 }
 
 export async function getUserAssignedTasks(userId: string): Promise<Task[]> {
-  const { items } = await queryByIndex<TaskDBItem>(
-    T,
-    "GSI2",
-    "GSI2PK",
-    createAssigneeGSI(userId)
-  );
-
-  const tasks = items.map(dbItemToTask);
-  return Promise.all(tasks.map(enrichTaskWithUsers));
-}
-
-export async function reorderTasksInColumn(
-  projectId: string,
-  status: TaskStatus,
-  taskIds: string[]
-): Promise<void> {
-  for (let i = 0; i < taskIds.length; i += 25) {
-    const batch = taskIds.slice(i, i + 25);
-    await batchWriteItems(
-      T,
-      batch.map((taskId, idx) => ({
-        put: {
-          PK: createProjectPK(projectId),
-          SK: createTaskSK(taskId),
-          order: i + idx,
-          GSI4SK: createOrderGSI(i + idx),
-          updatedAt: new Date().toISOString(),
-        },
-      }))
-    );
-  }
+  const { Items = [] } = await dynamodb.send(new QueryCommand({
+    TableName: T,
+    IndexName: "assigneeId-index",
+    KeyConditionExpression: "assigneeId = :u",
+    ExpressionAttributeValues: { ":u": userId },
+  }));
+  return Promise.all(Items.map(toTask).map(enrichTask));
 }

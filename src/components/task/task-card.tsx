@@ -1,9 +1,8 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskPriorityBadge } from "./task-priority-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { Calendar } from "lucide-react";
+import { Calendar, GripVertical } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/types/task";
@@ -19,46 +18,60 @@ export function TaskCard({ task, onClick, isDragging }: TaskCardProps) {
   const isDueToday = task.dueDate && isToday(new Date(task.dueDate));
 
   return (
-    <Card
-      className={cn(
-        "cursor-pointer transition-shadow hover:shadow-md",
-        isDragging && "opacity-50 shadow-lg"
-      )}
+    <div
       onClick={onClick}
+      className={cn(
+        "group rounded-lg border bg-card p-3 cursor-pointer transition-all",
+        "hover:shadow-md hover:-translate-y-0.5",
+        isDragging && "opacity-50 shadow-lg rotate-1"
+      )}
     >
-      <CardHeader className="p-3 pb-0">
-        <CardTitle className="text-sm font-medium leading-tight">
+      <div className="flex items-start gap-2 mb-2">
+        <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 mt-0.5 group-hover:text-muted-foreground/60 transition-colors" />
+        <p className="text-sm font-medium leading-tight flex-1 group-hover:text-primary transition-colors">
           {task.title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-3 pt-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <TaskPriorityBadge priority={task.priority} />
+        </p>
+      </div>
+
+      {task.labels && task.labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2 ml-6">
+          {task.labels.map((label) => (
+            <span
+              key={label}
+              className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between ml-6">
+        <TaskPriorityBadge priority={task.priority} />
+        <div className="flex items-center gap-2">
           {task.dueDate && (
-            <div
+            <span
               className={cn(
                 "flex items-center gap-1 text-xs",
-                isOverdue && "text-red-600",
-                isDueToday && !isOverdue && "text-orange-600",
-                !isOverdue && !isDueToday && "text-muted-foreground"
+                isOverdue ? "text-red-500 font-medium" : isDueToday ? "text-orange-500" : "text-muted-foreground"
               )}
             >
               <Calendar className="h-3 w-3" />
               {format(new Date(task.dueDate), "MMM d")}
-            </div>
+            </span>
           )}
-        </div>
-        {task.assignee && (
-          <div className="mt-2 flex items-center justify-end">
+          {task.assignee ? (
             <UserAvatar
               name={task.assignee.name}
               email={task.assignee.email}
               avatarUrl={task.assignee.avatarUrl}
               size="sm"
             />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          ) : (
+            <div className="w-6 h-6 rounded-full border-2 border-dashed border-muted-foreground/20" />
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

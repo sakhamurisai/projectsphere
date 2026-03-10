@@ -9,8 +9,8 @@ export const createProjectSchema = z.object({
     .string()
     .min(2, "Key must be at least 2 characters")
     .max(10, "Key must be less than 10 characters")
-    .regex(/^[A-Z0-9]+$/, "Key can only contain uppercase letters and numbers")
-    .transform((val) => val.toUpperCase()),
+    .transform((val) => val.toUpperCase())
+    .pipe(z.string().regex(/^[A-Z0-9]+$/, "Key can only contain uppercase letters and numbers")),
   description: z.string().max(500, "Description must be less than 500 characters").optional(),
 });
 

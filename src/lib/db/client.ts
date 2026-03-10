@@ -19,14 +19,16 @@ export const dynamodb = DynamoDBDocumentClient.from(client, {
   },
 });
 
+const e = (key: string, fallback: string) => (process.env[key] || fallback).trim();
+
 // Separate tables — one per entity
 export const TABLES = {
-  USERS:               process.env.NEXT_PUBLIC_DYNAMODB_USERS_TABLE               || "projectsphere-users",
-  WORKSPACES:          process.env.NEXT_PUBLIC_DYNAMODB_WORKSPACES_TABLE          || "projectsphere-workspaces",
-  WORKSPACE_MEMBERS:   process.env.NEXT_PUBLIC_DYNAMODB_WORKSPACE_MEMBERS_TABLE   || "projectsphere-workspace-members",
-  PROJECTS:            process.env.NEXT_PUBLIC_DYNAMODB_PROJECTS_TABLE            || "projectsphere-projects",
-  PROJECT_MEMBERS:     process.env.NEXT_PUBLIC_DYNAMODB_PROJECT_MEMBERS_TABLE     || "projectsphere-project-members",
-  TASKS:               process.env.NEXT_PUBLIC_DYNAMODB_TASKS_TABLE               || "projectsphere-tasks",
-  INVITATIONS:         process.env.NEXT_PUBLIC_DYNAMODB_INVITATIONS_TABLE         || "projectsphere-invitations",
-  FILES:               process.env.NEXT_PUBLIC_DYNAMODB_FILES_TABLE               || "projectsphere-files",
+  USERS:             e("NEXT_PUBLIC_DYNAMODB_USERS_TABLE",             "projectsphere-users"),
+  WORKSPACES:        e("NEXT_PUBLIC_DYNAMODB_WORKSPACES_TABLE",        "projectsphere-workspaces"),
+  WORKSPACE_MEMBERS: e("NEXT_PUBLIC_DYNAMODB_WORKSPACE_MEMBERS_TABLE", "projectsphere-workspace-members"),
+  PROJECTS:          e("NEXT_PUBLIC_DYNAMODB_PROJECTS_TABLE",          "projectsphere-projects"),
+  PROJECT_MEMBERS:   e("NEXT_PUBLIC_DYNAMODB_PROJECT_MEMBERS_TABLE",   "projectsphere-project-members"),
+  TASKS:             e("NEXT_PUBLIC_DYNAMODB_TASKS_TABLE",             "projectsphere-tasks"),
+  INVITATIONS:       e("NEXT_PUBLIC_DYNAMODB_INVITATIONS_TABLE",       "projectsphere-invitations"),
+  FILES:             e("NEXT_PUBLIC_DYNAMODB_FILES_TABLE",             "projectsphere-files"),
 } as const;

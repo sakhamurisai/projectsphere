@@ -25,7 +25,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (!role) throw new ForbiddenError("Access denied");
     if (role === "viewer" || role === "member") throw new ForbiddenError("Insufficient permissions");
 
-    await revokeInvitation(workspaceId, inviteId);
+    await revokeInvitation(inviteId);
     return noContentResponse();
   } catch (error) {
     return errorResponse(error);

@@ -69,15 +69,7 @@ export interface SubTask {
 }
 
 export interface TaskDBItem extends Record<string, unknown> {
-  PK: string;
-  SK: string;
-  GSI1PK: string;
-  GSI1SK: string;
-  GSI2PK: string;
-  GSI2SK: string;
-  GSI4PK: string;
-  GSI4SK: string;
-  id: string;
+  taskId: string;
   projectId: string;
   workspaceId: string;
   title: string;

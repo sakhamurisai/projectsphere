@@ -17,6 +17,18 @@ import { MentionTextarea } from "@/components/shared/mention-textarea";
 import { createTaskSchema, type CreateTaskInput } from "@/validations/task";
 import { TASK_STATUSES } from "@/constants/task-status";
 import { TASK_PRIORITIES } from "@/constants/task-priority";
+import { cn } from "@/lib/utils";
+import type { Project } from "@/types/project";
+
+const PROJECT_COLORS = [
+  "bg-violet-500","bg-blue-500","bg-emerald-500","bg-orange-500",
+  "bg-pink-500","bg-teal-500","bg-fuchsia-500","bg-amber-500",
+];
+function projectColor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PROJECT_COLORS[h % PROJECT_COLORS.length];
+}
 
 interface TaskFormProps {
   onSubmit: (data: CreateTaskInput) => void;
@@ -24,6 +36,10 @@ interface TaskFormProps {
   isSubmitting?: boolean;
   defaultValues?: Partial<CreateTaskInput>;
   workspaceId: string;
+  /** When provided, renders a project picker at the top of the form */
+  projects?: Project[];
+  selectedProjectId?: string;
+  onProjectChange?: (projectId: string) => void;
 }
 
 export function TaskForm({
@@ -32,6 +48,9 @@ export function TaskForm({
   isSubmitting,
   defaultValues,
   workspaceId,
+  projects,
+  selectedProjectId,
+  onProjectChange,
 }: TaskFormProps) {
   const {
     register,
@@ -54,8 +73,50 @@ export function TaskForm({
   const priority = watch("priority");
   const description = watch("description") ?? "";
 
+  const selectedProject = projects?.find((p) => p.id === selectedProjectId);
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+      {/* Project selector — only shown when projects are injected */}
+      {projects && projects.length > 0 && (
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">
+            Project <span className="text-destructive">*</span>
+          </Label>
+          <Select
+            value={selectedProjectId ?? ""}
+            onValueChange={(v) => onProjectChange?.(v)}
+          >
+            <SelectTrigger className={cn("text-sm", !selectedProjectId && "text-muted-foreground")}>
+              <SelectValue placeholder="Select a project…">
+                {selectedProject && (
+                  <span className="flex items-center gap-2">
+                    <span className={cn("w-2 h-2 rounded-full shrink-0", projectColor(selectedProject.id))} />
+                    <span className="font-mono text-xs text-muted-foreground">{selectedProject.key}</span>
+                    <span>{selectedProject.name}</span>
+                  </span>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  <span className="flex items-center gap-2">
+                    <span className={cn("w-2 h-2 rounded-full shrink-0", projectColor(p.id))} />
+                    <span className="font-mono text-xs text-muted-foreground">{p.key}</span>
+                    <span>{p.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {projects && !selectedProjectId && (
+            <p className="text-xs text-muted-foreground">Choose the project this task belongs to.</p>
+          )}
+        </div>
+      )}
+
       {/* Title */}
       <div className="space-y-1.5">
         <Label htmlFor="title" className="text-sm font-medium">
@@ -73,7 +134,7 @@ export function TaskForm({
         )}
       </div>
 
-      {/* Description with @ mentions */}
+      {/* Description */}
       <div className="space-y-1.5">
         <Label htmlFor="description" className="text-sm font-medium">
           Description{" "}
@@ -156,7 +217,11 @@ export function TaskForm({
             Cancel
           </Button>
         )}
-        <Button type="submit" size="sm" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isSubmitting || (!!projects && !selectedProjectId)}
+        >
           {isSubmitting && <LoadingSpinner size="sm" className="mr-2" />}
           Create Task
         </Button>

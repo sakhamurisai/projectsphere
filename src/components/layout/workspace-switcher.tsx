@@ -44,7 +44,7 @@ export function WorkspaceSwitcher() {
     const workspace = workspaces.find((ws) => ws.id === value);
     if (workspace) {
       setCurrentWorkspace(workspace);
-      router.push(`/workspaces/${workspace.id}`);
+      router.push(`/dashboard/workspaces/${workspace.id}`);
     }
   };
 
@@ -55,7 +55,7 @@ export function WorkspaceSwitcher() {
   if (workspaces.length === 0) {
     return (
       <Button variant="outline" size="sm" asChild>
-        <Link href="/workspaces/new" className="flex items-center gap-2">
+        <Link href="/dashboard/workspaces/new" className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Create workspace
         </Link>
@@ -87,7 +87,7 @@ export function WorkspaceSwitcher() {
             className="w-full justify-start"
             asChild
           >
-            <Link href="/workspaces/new" className="flex items-center gap-2">
+            <Link href="/dashboard/workspaces/new" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Create workspace
             </Link>

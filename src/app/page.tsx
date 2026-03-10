@@ -167,12 +167,12 @@ function Navbar() {
         {/* CTAs */}
         <div className="flex items-center gap-3">
           <Link
-            href="/login"
+            href="/auth/login"
             className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 md:block"
           >
             Sign in
           </Link>
-          <ShimmerButton href="/register" className="h-9 px-5 text-xs">
+          <ShimmerButton href="/auth/signup" className="h-9 px-5 text-xs">
             Get started free
           </ShimmerButton>
         </div>
@@ -694,7 +694,7 @@ function CTASection() {
           Join 40,000+ teams who ship faster, communicate clearer, and actually enjoy their workflow.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <ShimmerButton href="/register" className="h-12 px-8 text-sm">
+          <ShimmerButton href="/auth/signup" className="h-12 px-8 text-sm">
             Start for free
             <ArrowRight className="h-4 w-4" />
           </ShimmerButton>
@@ -853,7 +853,7 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.5 }}
               className="mt-9 flex flex-wrap items-center justify-center gap-4"
             >
-              <ShimmerButton href="/register" className="h-12 px-8 text-sm">
+              <ShimmerButton href="/auth/signup" className="h-12 px-8 text-sm">
                 Start for free
                 <ArrowRight className="h-4 w-4" />
               </ShimmerButton>

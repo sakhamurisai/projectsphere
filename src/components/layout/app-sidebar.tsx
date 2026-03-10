@@ -64,8 +64,8 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/workspaces")}>
-                  <Link href="/workspaces">
+                <SidebarMenuButton asChild isActive={isActive("/dashboard/workspaces")}>
+                  <Link href="/dashboard/workspaces">
                     <LayoutDashboard className="h-4 w-4" />
                     <span>Workspaces</span>
                   </Link>
@@ -86,9 +86,9 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={isActive(`/workspaces/${workspaceId}`)}
+                      isActive={isActive(`/dashboard/workspaces/${workspaceId}`)}
                     >
-                      <Link href={`/workspaces/${workspaceId}`}>
+                      <Link href={`/dashboard/workspaces/${workspaceId}`}>
                         <LayoutDashboard className="h-4 w-4" />
                         <span>Overview</span>
                       </Link>
@@ -97,9 +97,9 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={isActive(`/workspaces/${workspaceId}/members`)}
+                      isActive={isActive(`/dashboard/workspaces/${workspaceId}/members`)}
                     >
-                      <Link href={`/workspaces/${workspaceId}/members`}>
+                      <Link href={`/dashboard/workspaces/${workspaceId}/members`}>
                         <Users className="h-4 w-4" />
                         <span>Members</span>
                       </Link>
@@ -108,9 +108,9 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={isActive(`/workspaces/${workspaceId}/settings`)}
+                      isActive={isActive(`/dashboard/workspaces/${workspaceId}/settings`)}
                     >
-                      <Link href={`/workspaces/${workspaceId}/settings`}>
+                      <Link href={`/dashboard/workspaces/${workspaceId}/settings`}>
                         <Settings className="h-4 w-4" />
                         <span>Settings</span>
                       </Link>
@@ -124,7 +124,7 @@ export function AppSidebar() {
               <div className="flex items-center justify-between px-2">
                 <SidebarGroupLabel>Projects</SidebarGroupLabel>
                 <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-                  <Link href={`/workspaces/${workspaceId}/projects/new`}>
+                  <Link href={`/dashboard/workspaces/${workspaceId}/projects/new`}>
                     <Plus className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -154,7 +154,7 @@ export function AppSidebar() {
                           isActive={isProjectActive(project.id)}
                         >
                           <Link
-                            href={`/workspaces/${workspaceId}/projects/${project.id}/board`}
+                            href={`/dashboard/workspaces/${workspaceId}/projects/${project.id}/board`}
                           >
                             <FolderKanban className="h-4 w-4" />
                             <span>{project.name}</span>

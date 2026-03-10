@@ -1,0 +1,21 @@
+"use client"
+
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { DashboardHeader } from "@/components/layout/dashboard-header"
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <DashboardHeader />
+        <main className="flex-1 overflow-auto p-6 flex flex-col">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}

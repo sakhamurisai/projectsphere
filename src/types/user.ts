@@ -3,7 +3,7 @@ export interface User {
   email: string;
   name: string;
   avatarUrl?: string;
-  cognitoSub: string;
+  cognitoSub?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -11,7 +11,7 @@ export interface User {
 export interface UserCreateInput {
   email: string;
   name: string;
-  cognitoSub: string;
+  cognitoSub?: string;
 }
 
 export interface UserUpdateInput {

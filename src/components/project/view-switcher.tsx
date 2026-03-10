@@ -12,7 +12,7 @@ interface ViewSwitcherProps {
 }
 
 export function ViewSwitcher({ workspaceId, projectId, currentView }: ViewSwitcherProps) {
-  const baseUrl = `/workspaces/${workspaceId}/projects/${projectId}`;
+  const baseUrl = `/dashboard/workspaces/${workspaceId}/projects/${projectId}`;
 
   return (
     <div className="flex rounded-lg border p-1">

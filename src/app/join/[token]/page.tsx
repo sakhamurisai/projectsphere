@@ -111,7 +111,7 @@ export default function JoinPage({ params }: JoinPageProps) {
             </p>
             <Button
               className="mt-2"
-              onClick={() => router.push(workspaceId ? `/workspaces/${workspaceId}` : "/")}
+              onClick={() => router.push(workspaceId ? `/dashboard/workspaces/${workspaceId}` : "/")}
             >
               Go to Workspace
             </Button>

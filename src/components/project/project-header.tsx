@@ -37,7 +37,7 @@ export function ProjectHeader({ project, workspaceId, currentView }: ProjectHead
           currentView={currentView}
         />
         <Button variant="outline" size="icon" asChild>
-          <Link href={`/workspaces/${workspaceId}/projects/${project.id}/settings`}>
+          <Link href={`/dashboard/workspaces/${workspaceId}/projects/${project.id}/settings`}>
             <Settings className="h-4 w-4" />
           </Link>
         </Button>

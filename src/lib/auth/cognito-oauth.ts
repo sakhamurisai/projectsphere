@@ -10,7 +10,7 @@ const CLIENT_SECRET = process.env.NEXT_PUBLIC_COGNITO_CLIENT_SECRET || "";
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-export const CALLBACK_URI = `${APP_URL}/api/auth/callback`;
+export const CALLBACK_URI = `${APP_URL}/auth/callback`;
 
 // Cognito requires %20 (not +) for spaces in scope
 function buildUrl(base: string, params: Record<string, string>): string {
@@ -45,7 +45,7 @@ export function getCognitoSignupUrl(): string {
 export function getCognitoLogoutUrl(): string {
   return buildUrl(`${COGNITO_DOMAIN}/logout`, {
     client_id: CLIENT_ID,
-    logout_uri: `${APP_URL}/login`,
+    logout_uri: `${APP_URL}/`,
   });
 }
 

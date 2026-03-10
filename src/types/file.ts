@@ -12,11 +12,7 @@ export interface FileAttachment {
 }
 
 export interface FileAttachmentDBItem extends Record<string, unknown> {
-  PK: string;
-  SK: string;
-  GSI1PK: string;
-  GSI1SK: string;
-  id: string;
+  fileId: string;
   key: string;
   name: string;
   size: number;

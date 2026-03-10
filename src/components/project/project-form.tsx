@@ -36,7 +36,7 @@ export function ProjectForm({ onSubmit, isSubmitting, defaultValues }: ProjectFo
         .replace(/[^a-zA-Z0-9]+/g, "")
         .toUpperCase()
         .slice(0, 6);
-      setValue("key", key);
+      if (key.length >= 2) setValue("key", key, { shouldValidate: true });
     }
   }, [name, setValue, defaultValues?.key]);
 
@@ -62,8 +62,12 @@ export function ProjectForm({ onSubmit, isSubmitting, defaultValues }: ProjectFo
           placeholder="PROJ"
           maxLength={10}
           {...register("key")}
+          onChange={(e) => {
+            const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+            setValue("key", upper, { shouldValidate: true });
+          }}
           aria-invalid={!!errors.key}
-          className="uppercase"
+          className="font-mono tracking-widest"
         />
         <p className="text-xs text-muted-foreground">
           This key will be used as a prefix for task IDs (e.g., PROJ-1)
