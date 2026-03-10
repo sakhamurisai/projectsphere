@@ -1,20 +1,30 @@
 # ProjectSphere
 
-A full-stack project management tool built with Next.js, powered entirely by AWS — Cognito for authentication, DynamoDB for data, and S3 for file storage.
+A full-scale project management platform built with **Next.js 16**, **AWS Cognito**, **DynamoDB**, **S3**, and **SES** — designed to compete with Jira, ClickUp, and Linear.
 
 ---
 
 ## Features
 
-- **Authentication** — Secure sign-up, sign-in, email verification, and password reset via AWS Cognito
-- **Workspaces** — Create and manage workspaces with role-based access (Owner / Admin / Member)
-- **Projects** — Organize work into projects with custom keys and status tracking
-- **Tasks** — Full task lifecycle: create, assign, prioritize, label, and track due dates
-- **Board & List views** — Kanban drag-and-drop board and a sortable list view
-- **Subtasks** — Nested task hierarchy for complex work breakdown
-- **File attachments** — Upload files to tasks and projects via S3 presigned URLs
-- **Avatar uploads** — User profile pictures stored in S3
-- **Dark mode** — System-aware theme with manual toggle
+### Organization Management
+- **Multi-workspace (org) support** — create multiple organizations, each with independent projects and members
+- **Role-Based Access Control** — Owner, Admin, Member, Viewer roles with granular permissions
+- **Email invitations** — invite team members via email (AWS SES); they receive a branded invite link with `/join/[token]`
+
+### Project & Task Management
+- **Kanban board** — drag-and-drop task cards across status columns using `@dnd-kit`
+- **List view** — table-based task view with filters
+- **Task details** — slide-out sheet with rich editing: title, description, status, priority, due date, assignee, reporter
+- **Subtasks** — hierarchical task breakdown
+- **Task filters** — filter by status, priority, and keyword search
+- **Priority levels** — Low, Medium, High, Urgent with visual indicators
+- **File attachments** — attach files to tasks or projects via S3 presigned URLs
+
+### Onboarding & Auth
+- **Onboarding wizard** — 3-step flow for new users: Create Org → Invite Team → Done
+- **Email invitation acceptance** — `/join/[token]` landing page for new and existing users
+- **Auth pages** — Login, Register, Verify Email, Forgot/Reset Password (split-screen design)
+- **AWS Cognito** — SRP auth, email verification, JWT sessions, MFA-ready
 
 ---
 
@@ -24,325 +34,14 @@ A full-stack project management tool built with Next.js, powered entirely by AWS
 |---|---|
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 + shadcn/ui |
-| State | Zustand + TanStack Query v5 |
-| Forms | React Hook Form + Zod |
-| Drag & Drop | @dnd-kit |
-| Auth | AWS Cognito |
+| UI | shadcn/ui + Tailwind CSS v4 |
+| State | Zustand (global) + TanStack Query v5 (server) |
+| Auth | AWS Cognito + jose (JWT) |
 | Database | AWS DynamoDB (single-table design) |
-| File storage | AWS S3 |
-| Notifications | Sonner |
-
----
-
-## AWS Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                      Next.js App                        │
-│                                                         │
-│  ┌──────────┐   ┌──────────────┐   ┌─────────────────┐ │
-│  │  Auth    │   │  API Routes  │   │  React Client   │ │
-│  │  Pages   │   │  /api/*      │   │  Components     │ │
-│  └────┬─────┘   └──────┬───────┘   └────────┬────────┘ │
-│       │                │                    │           │
-└───────┼────────────────┼────────────────────┼───────────┘
-        │                │                    │
-        ▼                ▼                    ▼
-  ┌──────────┐   ┌──────────────┐   ┌─────────────────┐
-  │  Cognito │   │   DynamoDB   │   │       S3        │
-  │ User Pool│   │ Single Table │   │  projectsphere  │
-  │          │   │              │   │     -files      │
-  └──────────┘   └──────────────┘   └─────────────────┘
-```
-
-### AWS Cognito
-- Handles user registration, sign-in, email verification, and password reset
-- JWT tokens stored in secure httpOnly cookies
-- JWKS-based token verification on the server
-
-### AWS DynamoDB (Single-Table Design)
-
-**Table name:** `projectsphere`
-
-| Entity | PK | SK |
-|---|---|---|
-| User profile | `USER#{userId}` | `PROFILE` |
-| Workspace | `WORKSPACE#{workspaceId}` | `METADATA` |
-| Workspace member | `WORKSPACE#{workspaceId}` | `MEMBER#{userId}` |
-| Project | `WORKSPACE#{workspaceId}` | `PROJECT#{projectId}` |
-| Project member | `PROJECT#{projectId}` | `MEMBER#{userId}` |
-| Task | `PROJECT#{projectId}` | `TASK#{taskId}` |
-| File attachment | `{ENTITY_TYPE}#{entityId}` | `FILE#{fileId}` |
-
-**Global Secondary Indexes:**
-
-| GSI | PK | SK | Purpose |
-|---|---|---|---|
-| GSI1 | `GSI1PK` | `GSI1SK` | Task/file lookup by ID |
-| GSI2 | `GSI2PK` | `GSI2SK` | Tasks by assignee and due date |
-| GSI3 | `GSI3PK` | `GSI3SK` | User lookup by email |
-| GSI4 | `GSI4PK` | `GSI4SK` | Tasks by status and order |
-
-### AWS S3
-
-**Bucket:** `projectsphere-files`
-
-**Key structure:**
-```
-avatars/{userId}/{fileId}.{ext}       — user profile pictures
-tasks/{taskId}/{fileId}.{ext}         — task attachments
-projects/{projectId}/{fileId}.{ext}   — project files
-```
-
-File uploads use **presigned PUT URLs** — the browser uploads directly to S3; the server never proxies file bytes.
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- An AWS account with permissions to create Cognito, DynamoDB, and S3 resources
-
-### 1. Clone and install
-
-```bash
-git clone https://github.com/your-org/projectsphere.git
-cd projectsphere
-npm install
-```
-
-### 2. Configure environment variables
-
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` with your AWS resource identifiers (see [Environment Variables](#environment-variables) below).
-
-### 3. Create AWS resources
-
-#### Cognito User Pool
-
-1. Open **AWS Console → Cognito → Create user pool**
-2. Sign-in options: **Email**
-3. Password policy: at least 8 characters, uppercase, lowercase, number, symbol
-4. **Enable self-service account recovery** (email)
-5. **Required attributes:** `email`, `name`
-6. **App client:** public client, no secret, enable **USER_PASSWORD_AUTH**
-7. Copy the **User Pool ID** and **Client ID** to `.env.local`
-
-#### DynamoDB Table
-
-Create a table with the following settings:
-
-```
-Table name:        projectsphere          (or your chosen name)
-Partition key:     PK     (String)
-Sort key:          SK     (String)
-Billing mode:      On-demand
-```
-
-Then add four Global Secondary Indexes:
-
-| Name | Partition Key | Sort Key | Projection |
-|---|---|---|---|
-| GSI1 | GSI1PK (S) | GSI1SK (S) | ALL |
-| GSI2 | GSI2PK (S) | GSI2SK (S) | ALL |
-| GSI3 | GSI3PK (S) | GSI3SK (S) | ALL |
-| GSI4 | GSI4PK (S) | GSI4SK (S) | ALL |
-
-#### S3 Bucket
-
-1. Create a bucket named `projectsphere-files` (or your chosen name)
-2. **Block all public access** — keep it private (files are served via presigned URLs)
-3. Add a **CORS policy** to allow browser uploads:
-
-```json
-[
-  {
-    "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-    "AllowedOrigins": ["http://localhost:3000", "https://yourdomain.com"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3000
-  }
-]
-```
-
-#### IAM User / Role
-
-Create an IAM user (for local dev) or role (for production) with this policy:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "cognito-idp:GetUser",
-        "cognito-idp:AdminGetUser"
-      ],
-      "Resource": "arn:aws:cognito-idp:REGION:ACCOUNT:userpool/POOL_ID"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query",
-        "dynamodb:BatchWriteItem",
-        "dynamodb:TransactWriteItems"
-      ],
-      "Resource": [
-        "arn:aws:dynamodb:REGION:ACCOUNT:table/projectsphere",
-        "arn:aws:dynamodb:REGION:ACCOUNT:table/projectsphere/index/*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:HeadObject"
-      ],
-      "Resource": "arn:aws:s3:::projectsphere-files/*"
-    }
-  ]
-}
-```
-
-### 4. Run the development server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `AWS_REGION` | Yes | AWS region for DynamoDB and credentials |
-| `AWS_ACCESS_KEY_ID` | Yes | IAM access key |
-| `AWS_SECRET_ACCESS_KEY` | Yes | IAM secret key |
-| `NEXT_PUBLIC_AWS_REGION` | Yes | AWS region (exposed to browser for Cognito) |
-| `NEXT_PUBLIC_COGNITO_USER_POOL_ID` | Yes | Cognito User Pool ID |
-| `NEXT_PUBLIC_COGNITO_CLIENT_ID` | Yes | Cognito App Client ID |
-| `AWS_DYNAMODB_TABLE_NAME` | Yes | DynamoDB table name (default: `projectsphere`) |
-| `AWS_S3_BUCKET_NAME` | Yes | S3 bucket name |
-| `AWS_S3_REGION` | Yes | S3 bucket region |
-| `NEXT_PUBLIC_AWS_S3_BUCKET_NAME` | Yes | S3 bucket name (browser, for URL construction) |
-| `NEXT_PUBLIC_AWS_S3_REGION` | Yes | S3 region (browser, for URL construction) |
-| `NODE_ENV` | No | `development` or `production` |
-| `NEXT_PUBLIC_APP_URL` | No | Full app URL (e.g. `https://yourdomain.com`) |
-
----
-
-## API Reference
-
-### Authentication
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/auth/register` | Create a new account |
-| POST | `/api/auth/login` | Sign in |
-| POST | `/api/auth/logout` | Sign out (clears cookies) |
-| GET | `/api/auth/me` | Get current user profile |
-| PUT | `/api/auth/me` | Update name or avatar URL |
-| POST | `/api/auth/verify-email` | Confirm email with code |
-| POST | `/api/auth/forgot-password` | Request password reset |
-| POST | `/api/auth/reset-password` | Confirm password reset |
-| POST | `/api/auth/refresh` | Refresh access token |
-
-### Workspaces
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/workspaces` | List user's workspaces |
-| POST | `/api/workspaces` | Create a workspace |
-| GET | `/api/workspaces/:id` | Get workspace details |
-| PUT | `/api/workspaces/:id` | Update workspace |
-| DELETE | `/api/workspaces/:id` | Delete workspace |
-| GET | `/api/workspaces/:id/members` | List members |
-| POST | `/api/workspaces/:id/members` | Invite a member |
-| PUT | `/api/workspaces/:id/members/:memberId` | Update member role |
-| DELETE | `/api/workspaces/:id/members/:memberId` | Remove a member |
-| GET | `/api/workspaces/:id/projects` | List workspace projects |
-
-### Projects
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/workspaces/:id/projects` | Create a project |
-| GET | `/api/projects/:id` | Get project details |
-| PUT | `/api/projects/:id` | Update project |
-| DELETE | `/api/projects/:id` | Delete project |
-| GET | `/api/projects/:id/members` | List project members |
-| POST | `/api/projects/:id/members` | Add project member |
-| GET | `/api/projects/:id/tasks` | List project tasks |
-| GET | `/api/projects/:id/attachments` | List project files |
-
-### Tasks
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/projects/:id/tasks` | Create a task |
-| GET | `/api/tasks/:id` | Get task details |
-| PUT | `/api/tasks/:id` | Update task |
-| DELETE | `/api/tasks/:id` | Delete task |
-| POST | `/api/tasks/:id/reorder` | Move task in board |
-| GET | `/api/tasks/:id/subtasks` | List subtasks |
-| POST | `/api/tasks/:id/subtasks` | Create a subtask |
-| GET | `/api/tasks/:id/attachments` | List task files |
-
-### File Uploads
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/uploads` | Get a presigned S3 upload URL |
-| POST | `/api/uploads/:fileId` | Register file in DB after upload |
-| GET | `/api/uploads/:fileId` | Get file info + fresh download URL |
-| DELETE | `/api/uploads/:fileId` | Delete file from S3 and DB |
-
-**Upload flow:**
-
-```
-Client                    API                       S3
-  │                        │                         │
-  │  POST /api/uploads     │                         │
-  │  {fileName, mimeType,  │                         │
-  │   fileSize, entityType,│                         │
-  │   entityId}            │                         │
-  │ ──────────────────────►│                         │
-  │                        │  Generate presigned URL │
-  │                        │ ───────────────────────►│
-  │                        │◄────────────────────────│
-  │◄──────────────────────│                         │
-  │  {uploadUrl, fileId,   │                         │
-  │   key, expiresAt}      │                         │
-  │                        │                         │
-  │  PUT {uploadUrl}       │                         │
-  │  (file bytes)          │                         │
-  │ ───────────────────────────────────────────────►│
-  │◄───────────────────────────────────────────────-│
-  │                        │                         │
-  │  POST /api/uploads/{fileId}                      │
-  │  {key, name, size, ...}│                         │
-  │ ──────────────────────►│                         │
-  │                        │  Save to DynamoDB       │
-  │◄──────────────────────│                         │
-  │  {FileAttachment}      │                         │
-```
+| Storage | AWS S3 (presigned URLs) |
+| Email | AWS SES |
+| Drag & Drop | @dnd-kit/core + @dnd-kit/sortable |
+| Forms | React Hook Form + Zod v4 |
 
 ---
 
@@ -351,85 +50,179 @@ Client                    API                       S3
 ```
 src/
 ├── app/
-│   ├── (auth)/                  # Login, register, verify, forgot/reset password
-│   ├── (dashboard)/             # Protected app pages
-│   │   ├── workspaces/
-│   │   └── workspaces/[id]/
-│   │       └── projects/[id]/
+│   ├── (auth)/                  # Login, Register, Verify, Forgot/Reset Password
+│   ├── (dashboard)/             # All authenticated pages
+│   │   ├── page.tsx             # Dashboard home → redirects new users to onboarding
+│   │   └── workspaces/
+│   │       ├── page.tsx         # All workspaces list
+│   │       ├── new/             # Create workspace form
+│   │       └── [workspaceId]/
+│   │           ├── page.tsx     # Workspace overview (stats + project grid)
+│   │           ├── members/     # Members list + Invitations tab
+│   │           ├── settings/    # Workspace settings + Danger zone
+│   │           └── projects/
+│   │               ├── page.tsx
+│   │               ├── new/
+│   │               └── [projectId]/
+│   │                   ├── board/    # ← Kanban board (drag-and-drop)
+│   │                   ├── list/     # ← Table/list view
+│   │                   └── settings/
+│   ├── (onboarding)/
+│   │   └── onboarding/          # Multi-step org setup wizard
+│   ├── join/[token]/            # Invitation acceptance page
 │   └── api/
-│       ├── auth/                # Authentication endpoints
-│       ├── workspaces/          # Workspace + member endpoints
-│       ├── projects/            # Project + member + attachment endpoints
-│       ├── tasks/               # Task + subtask + attachment endpoints
-│       └── uploads/             # S3 presigned URL and file registration
+│       ├── auth/                # Auth endpoints
+│       ├── workspaces/          # Workspace CRUD + members + invitations
+│       ├── projects/            # Project CRUD + members + tasks
+│       ├── tasks/               # Task CRUD + reorder + subtasks
+│       ├── uploads/             # S3 presigned URLs
+│       └── invitations/         # Token-based invite acceptance
 ├── components/
-│   ├── auth/                    # Auth forms and pages
-│   ├── layout/                  # Sidebar, header, app shell
-│   ├── workspace/               # Workspace cards, forms, member management
-│   ├── project/                 # Project cards, forms, settings
-│   ├── task/                    # Task cards, board, detail modal, filters
-│   ├── views/                   # List and board view implementations
-│   ├── shared/                  # Avatar, file upload, confirm dialog, spinners
-│   └── ui/                      # shadcn/ui primitives
+│   ├── app-sidebar.tsx          # Sidebar-07 pattern with live data
+│   ├── auth/                    # Auth form components
+│   ├── layout/                  # DashboardHeader, nav components
+│   ├── project/                 # ProjectCard, ProjectHeader, ViewSwitcher
+│   ├── task/                    # TaskCard, TaskDetail, CreateTaskDialog, TaskFilters
+│   ├── views/                   # KanbanBoard (dnd-kit), ListView
+│   ├── workspace/               # WorkspaceCard, MemberList, AddMemberDialog
+│   └── shared/                  # EmptyState, LoadingSpinner, FileUpload, AvatarUpload
+├── hooks/                       # use-auth, use-workspaces, use-projects, use-tasks, use-user
 ├── lib/
-│   ├── auth/                    # Cognito operations, token utils, session management
-│   ├── db/
-│   │   ├── client.ts            # DynamoDB client
-│   │   ├── operations.ts        # Generic CRUD helpers
-│   │   └── entities/            # user, workspace, project, task, file
-│   ├── storage/
-│   │   └── s3.ts                # S3 client + presigned URL helpers
-│   └── api/                     # Error classes and response helpers
-├── types/                       # TypeScript interfaces (auth, user, workspace, project, task, file)
-├── constants/                   # Role definitions, task status/priority enums
-└── validations/                 # Zod schemas for API input validation
+│   ├── auth/                    # Cognito client, session, JWT
+│   ├── db/                      # DynamoDB client + entities (workspace, project, task, user, file, invitation)
+│   ├── email/                   # AWS SES email service
+│   └── storage/                 # S3 utilities
+├── stores/                      # auth-store, workspace-store, ui-store
+├── types/                       # TypeScript interfaces
+└── validations/                 # Zod schemas
 ```
 
 ---
 
-## Roles and Permissions
+## Quick Start
 
-### Workspace Roles
-
-| Action | Owner | Admin | Member |
-|---|---|---|---|
-| View workspace | Yes | Yes | Yes |
-| Update workspace settings | Yes | Yes | No |
-| Delete workspace | Yes | No | No |
-| Invite members | Yes | Yes | No |
-| Remove members | Yes | Yes | No |
-| Create projects | Yes | Yes | Yes |
-
-### Project Roles
-
-| Action | Owner | Manager | Member |
-|---|---|---|---|
-| View project | Yes | Yes | Yes |
-| Update project settings | Yes | Yes | No |
-| Delete project | Yes | No | No |
-| Manage project members | Yes | Yes | No |
-| Create tasks | Yes | Yes | Yes |
-| Delete any task | Yes | Yes | No |
-| Delete own task | Yes | Yes | Yes |
-
----
-
-## Development Scripts
+### 1. Clone & Install
 
 ```bash
-npm run dev      # Start development server (http://localhost:3000)
-npm run build    # Build for production
-npm run start    # Run production build
+git clone https://github.com/your-org/projectsphere.git
+cd projectsphere
+npm install
+```
+
+### 2. Configure AWS
+
+See **[AWS-SETUP.md](./AWS-SETUP.md)** for step-by-step instructions to provision:
+- Cognito User Pool + App Client
+- DynamoDB table with 4 GSIs
+- S3 bucket with CORS
+- SES verified sender
+- IAM policy + credentials
+
+### 3. Environment Variables
+
+```bash
+cp .env.example .env.local
+```
+
+```env
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# AWS
+NEXT_PUBLIC_AWS_REGION=us-east-1
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+
+# Cognito
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_XXXXXXXXX
+NEXT_PUBLIC_COGNITO_CLIENT_ID=XXXXXXXXXXXXXXXXXXXXXXXXXX
+COGNITO_JWKS_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX/.well-known/jwks.json
+
+# DynamoDB
+DYNAMODB_TABLE_NAME=projectsphere
+
+# S3
+AWS_S3_BUCKET_NAME=projectsphere-files-ACCOUNTID
+AWS_S3_REGION=us-east-1
+
+# SES (for email invitations)
+SES_FROM_EMAIL=noreply@yourdomain.com
+```
+
+### 4. Run
+
+```bash
+npm run dev       # Development
+npm run build     # Production build
+npm run start     # Production server
 ```
 
 ---
 
-## Deployment
+## DynamoDB Single-Table Design
 
-This app can be deployed to any platform that supports Node.js. For **Vercel**:
+| Entity | PK | SK | Purpose |
+|---|---|---|---|
+| Workspace | `WORKSPACE#{id}` | `METADATA` | Workspace data |
+| Workspace Member | `WORKSPACE#{id}` | `MEMBER#{userId}` | Membership + role |
+| Project | `WORKSPACE#{id}` | `PROJECT#{id}` | Project data |
+| Task | `PROJECT#{projectId}` | `TASK#{id}` | Task data |
+| User | `USER#{id}` | `PROFILE` | User profile |
+| File | `ENTITY#{entityId}` | `FILE#{id}` | Attachment metadata |
+| Invitation | `WORKSPACE#{id}` | `INVITE#{id}` | Email invitations |
 
-1. Connect your repository
-2. Set all environment variables in Project Settings → Environment Variables
-3. Deploy — Vercel auto-detects Next.js
+**4 Global Secondary Indexes:**
+- `GSI1` — User → Workspaces, Project lookups
+- `GSI2` — Slug uniqueness, Invitation token lookup (`INVITE_TOKEN#...`)
+- `GSI3` — Email → User lookup
+- `GSI4` — Kanban ordering: `PROJECT#{id}#STATUS#{status}` / `ORDER#{n}`
 
-For production, prefer **IAM Roles** (via instance profiles or OIDC) over long-lived access keys.
+---
+
+## Application Flows
+
+### New User Flow
+```
+Sign Up → Verify Email → Sign In → No Workspaces? → Onboarding Wizard
+  1. Create Organization (name, slug, description)
+  2. Invite Team (email + role → SES email sent)
+  3. Done → Workspace Dashboard
+```
+
+### Email Invitation Flow
+```
+Admin → POST /api/workspaces/{id}/invitations
+     → Invitation saved in DynamoDB
+     → SES sends branded HTML email with /join/{token} link
+     → Invitee clicks link → Join page
+     → If not authenticated → redirect to login/register
+     → POST /api/invitations/{token} → user added to workspace
+     → Invitation marked "accepted"
+```
+
+### File Upload Flow
+```
+Client → POST /api/uploads { fileName, fileType, fileSize }
+Server → Returns presigned S3 PUT URL
+Client → PUT {presigned-url} (direct to S3, no proxying)
+Client → POST /api/uploads/{fileId}/confirm
+Server → Saves metadata in DynamoDB
+```
+
+---
+
+## Build & Deploy
+
+### AWS Amplify Hosting
+1. Connect your GitHub repository in [Amplify Console](https://console.aws.amazon.com/amplify/)
+2. Set all environment variables in **App Settings → Environment Variables**
+3. Amplify auto-deploys on push to `main`
+
+### Vercel / Self-hosted
+Works with any Node.js 18+ hosting. Set environment variables in your platform's dashboard.
+
+---
+
+## License
+
+MIT

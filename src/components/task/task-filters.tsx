@@ -19,9 +19,10 @@ import type { TaskStatus, TaskPriority, TaskFilters } from "@/types/task";
 interface TaskFiltersComponentProps {
   filters: TaskFilters;
   onFiltersChange: (filters: TaskFilters) => void;
+  projectId?: string;
 }
 
-export function TaskFiltersComponent({ filters, onFiltersChange }: TaskFiltersComponentProps) {
+export function TaskFilters({ filters, onFiltersChange, projectId: _projectId }: TaskFiltersComponentProps) {
   const [searchInput, setSearchInput] = useState(filters.search || "");
 
   const hasActiveFilters =

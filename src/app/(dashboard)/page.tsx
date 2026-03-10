@@ -61,7 +61,11 @@ export default function DashboardPage() {
     if (!currentWorkspace && workspaces.length > 0) {
       setCurrentWorkspace(workspaces[0])
     }
-  }, [workspaces, currentWorkspace, setCurrentWorkspace])
+    // Redirect new users with no workspaces to onboarding
+    if (!wsLoading && workspaces.length === 0) {
+      router.replace("/onboarding")
+    }
+  }, [workspaces, currentWorkspace, setCurrentWorkspace, wsLoading, router])
 
   const isLoading = wsLoading || projLoading
 

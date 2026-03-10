@@ -6,7 +6,10 @@
       "Bash(npm install:*)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(dir:*)",
+      "Bash(rm:*)",
+      "Bash(ls:*)"
     ]
   }
 }

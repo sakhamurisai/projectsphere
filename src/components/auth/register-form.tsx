@@ -8,11 +8,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/shared/loading-spinner";
 import { signUpSchema, type SignUpInput } from "@/validations/auth";
 import { useAuth } from "@/hooks/use-auth";
-import { Eye, EyeOff, Check, X } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Check, X } from "lucide-react";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -54,107 +53,114 @@ export function RegisterForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-        <CardDescription>
-          Enter your details to get started with ProjectSphere
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
+        <p className="text-muted-foreground">
+          Start managing projects smarter — for free
+        </p>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Full name</Label>
+          <Input
+            id="name"
+            type="text"
+            placeholder="John Doe"
+            className="h-11"
+            {...register("name")}
+            aria-invalid={!!errors.name}
+          />
+          {errors.name && (
+            <p className="text-sm text-destructive">{errors.name.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email address</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="name@example.com"
+            className="h-11"
+            {...register("email")}
+            aria-invalid={!!errors.email}
+          />
+          {errors.email && (
+            <p className="text-sm text-destructive">{errors.email.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Create a strong password"
+              className="h-11 pr-10"
+              {...register("password")}
+              aria-invalid={!!errors.password}
+            />
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {password && (
+            <div className="grid grid-cols-2 gap-1 pt-1">
+              {passwordRequirements.map((req) => (
+                <div
+                  key={req.label}
+                  className={`flex items-center gap-1.5 text-xs transition-colors ${
+                    req.met ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                  }`}
+                >
+                  {req.met ? (
+                    <Check className="h-3 w-3 shrink-0" />
+                  ) : (
+                    <X className="h-3 w-3 shrink-0" />
+                  )}
+                  {req.label}
+                </div>
+              ))}
             </div>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="John Doe"
-              {...register("name")}
-              aria-invalid={!!errors.name}
-            />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="name@example.com"
-              {...register("email")}
-              aria-invalid={!!errors.email}
-            />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Create a password"
-                {...register("password")}
-                aria-invalid={!!errors.password}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-            {password && (
-              <div className="space-y-1 pt-2">
-                {passwordRequirements.map((req) => (
-                  <div
-                    key={req.label}
-                    className={`flex items-center gap-2 text-xs ${
-                      req.met ? "text-green-600" : "text-muted-foreground"
-                    }`}
-                  >
-                    {req.met ? (
-                      <Check className="h-3 w-3" />
-                    ) : (
-                      <X className="h-3 w-3" />
-                    )}
-                    {req.label}
-                  </div>
-                ))}
-              </div>
-            )}
-            {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? <LoadingSpinner size="sm" className="mr-2" /> : null}
-            Create account
-          </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Sign in
-            </Link>
-          </p>
-        </CardFooter>
+          {errors.password && (
+            <p className="text-sm text-destructive">{errors.password.message}</p>
+          )}
+        </div>
+
+        <Button type="submit" className="h-11 w-full text-base font-semibold" disabled={isSubmitting}>
+          {isSubmitting && <LoadingSpinner size="sm" className="mr-2" />}
+          Create account
+        </Button>
       </form>
-    </Card>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Already have an account?{" "}
+        <Link href="/login" className="font-medium text-primary hover:underline">
+          Sign in
+        </Link>
+      </p>
+
+      <p className="text-center text-xs text-muted-foreground">
+        By creating an account you agree to our{" "}
+        <Link href="/terms" className="hover:underline">Terms of Service</Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="hover:underline">Privacy Policy</Link>.
+      </p>
+    </div>
   );
 }
