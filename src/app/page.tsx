@@ -10,6 +10,7 @@ import {
   useInView,
   type Variants,
 } from "framer-motion";
+import Image from "next/image";
 import {
   ArrowRight,
   Zap,
@@ -147,12 +148,7 @@ function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-            <Layers className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-[15px] font-bold tracking-tight text-slate-900">
-            VividFlow
-          </span>
+          <Image src="/logo.svg" alt="Project sphere" width={132} height={32} className="h-8 w-32" />
         </Link>
 
         {/* Nav links */}
@@ -241,7 +237,7 @@ function DashboardMockup() {
           <span className="h-3 w-3 rounded-full bg-amber-400" />
           <span className="h-3 w-3 rounded-full bg-green-400" />
           <div className="mx-auto flex h-6 w-48 items-center justify-center rounded-md bg-white border border-slate-200 text-[11px] text-slate-400 font-mono">
-            app.vividflow.io/board
+            app.projectsphere.io/board
           </div>
         </div>
 
@@ -250,8 +246,8 @@ function DashboardMockup() {
           {/* Sidebar */}
           <div className="hidden w-48 shrink-0 border-r border-slate-100 bg-slate-50 p-3 md:block">
             <div className="mb-4 flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2">
-              <Layers className="h-3.5 w-3.5 text-white" />
-              <span className="text-xs font-semibold text-white">VividFlow</span>
+              <Image src="/logo.svg" alt="Project sphere" width={120} height={20} className="h-3.5 w-3.5" />
+              <span className="text-xs font-semibold text-white">Project sphere</span>
             </div>
             {["Dashboard", "My Tasks", "Projects", "Team", "Analytics"].map((item, i) => (
               <div
@@ -737,7 +733,7 @@ function Footer() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
                 <Layers className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[15px] font-bold tracking-tight text-slate-900">VividFlow</span>
+              <span className="text-[15px] font-bold tracking-tight text-slate-900">Project sphere</span>
             </div>
             <p className="mt-3 max-w-[200px] text-sm text-slate-400 leading-relaxed">
               Project management for teams that move fast and ship great work.
@@ -763,7 +759,7 @@ function Footer() {
           </div>
         </div>
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 text-xs text-slate-400 md:flex-row">
-          <p>© {new Date().getFullYear()} VividFlow, Inc. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Project sphere, Inc. All rights reserved.</p>
           <p>Built with ♥ for teams that care about craft.</p>
         </div>
       </div>
@@ -847,7 +843,7 @@ export default function LandingPage() {
               transition={{ duration: 0.55, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
               className="mx-auto mt-6 max-w-xl text-lg text-slate-500 leading-relaxed"
             >
-              VividFlow gives high-performing teams one beautiful place to plan, build,
+              Project sphere gives high-performing teams one beautiful place to plan, build,
               and ship — with Kanban boards, sprint tracking, and real-time collaboration built in.
             </motion.p>
 

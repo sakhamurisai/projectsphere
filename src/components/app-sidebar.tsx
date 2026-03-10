@@ -2,10 +2,10 @@
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useParams, usePathname, useRouter } from "next/navigation"
 import {
   Home,
-  FolderKanban,
   Users,
   Settings,
   Plus,
@@ -15,7 +15,7 @@ import {
   LogOut,
   BadgeCheck,
   Bell,
-  Loader2,
+  FolderKanban,
 } from "lucide-react"
 
 import {
@@ -51,27 +51,29 @@ import { useAuthStore } from "@/stores/auth-store"
 import { useAuth } from "@/hooks/use-auth"
 import type { WorkspaceWithRole } from "@/types/workspace"
 
-/* ─── colour palette for project dots ─── */
+/* ── project dot colours ── */
 const PROJECT_COLORS = [
-  "bg-violet-500",
-  "bg-blue-500",
-  "bg-green-500",
-  "bg-orange-500",
-  "bg-rose-500",
-  "bg-teal-500",
-  "bg-fuchsia-500",
-  "bg-amber-500",
-  "bg-cyan-500",
-  "bg-indigo-500",
+  "bg-violet-500", "bg-blue-500", "bg-green-500", "bg-orange-500",
+  "bg-rose-500",   "bg-teal-500", "bg-fuchsia-500","bg-amber-500",
 ]
-
 function projectColor(id: string) {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
   return PROJECT_COLORS[h % PROJECT_COLORS.length]
 }
 
-/* ─── Workspace switcher ─── */
+/* ── workspace avatar colours ── */
+const WS_COLORS = [
+  "bg-violet-600", "bg-blue-600", "bg-emerald-600", "bg-orange-600",
+  "bg-rose-600",   "bg-teal-600", "bg-fuchsia-600", "bg-indigo-600",
+]
+function wsColor(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return WS_COLORS[h % WS_COLORS.length]
+}
+
+/* ── Workspace switcher ── */
 function WorkspaceSwitcher({
   workspaces,
   current,
@@ -84,14 +86,16 @@ function WorkspaceSwitcher({
   const { isMobile } = useSidebar()
   const router = useRouter()
 
-  if (!current && workspaces.length === 0) {
+  const ws = current ?? workspaces[0]
+
+  if (!ws) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" asChild>
             <Link href="/workspaces/new">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
-                PS
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
+                <Plus className="size-4" />
               </div>
               <span className="font-medium">Create workspace</span>
             </Link>
@@ -101,8 +105,8 @@ function WorkspaceSwitcher({
     )
   }
 
-  const ws = current ?? workspaces[0]
-  const initials = ws?.name?.slice(0, 2).toUpperCase() ?? "WS"
+  const initials = ws.name.slice(0, 2).toUpperCase()
+  const bgColor  = wsColor(ws.name)
 
   return (
     <SidebarMenu>
@@ -113,18 +117,19 @@ function WorkspaceSwitcher({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm">
+              <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${bgColor} text-white text-xs font-bold`}>
                 {initials}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{ws?.name}</span>
-                <span className="truncate text-xs text-sidebar-foreground/60 capitalize">{ws?.role}</span>
+                <span className="truncate font-semibold">{ws.name}</span>
+                <span className="truncate text-xs text-muted-foreground capitalize">{ws.role}</span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/50" />
+              <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-60 rounded-xl"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
@@ -133,13 +138,10 @@ function WorkspaceSwitcher({
             {workspaces.map((w, i) => (
               <DropdownMenuItem
                 key={w.id}
-                onClick={() => {
-                  onSelect(w)
-                  router.push(`/workspaces/${w.id}`)
-                }}
+                onClick={() => { onSelect(w); router.push(`/workspaces/${w.id}`) }}
                 className="gap-2 p-2"
               >
-                <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary text-[10px] font-bold">
+                <div className={`flex size-6 shrink-0 items-center justify-center rounded-sm ${wsColor(w.name)} text-white text-[10px] font-bold`}>
                   {w.name.slice(0, 2).toUpperCase()}
                 </div>
                 <span className="flex-1 truncate">{w.name}</span>
@@ -162,36 +164,16 @@ function WorkspaceSwitcher({
   )
 }
 
-/* ─── Main nav ─── */
+/* ── Main nav ── */
 function NavMain({ workspaceId }: { workspaceId: string }) {
   const pathname = usePathname()
 
   const items = [
-    {
-      label: "Home",
-      href: "/",
-      icon: <Home className="size-4" />,
-    },
-    {
-      label: "Overview",
-      href: workspaceId ? `/workspaces/${workspaceId}` : "/workspaces",
-      icon: <LayoutDashboard className="size-4" />,
-    },
-    {
-      label: "All Tasks",
-      href: workspaceId ? `/workspaces/${workspaceId}/tasks` : "#",
-      icon: <CheckSquare className="size-4" />,
-    },
-    {
-      label: "Members",
-      href: workspaceId ? `/workspaces/${workspaceId}/members` : "#",
-      icon: <Users className="size-4" />,
-    },
-    {
-      label: "Settings",
-      href: workspaceId ? `/workspaces/${workspaceId}/settings` : "#",
-      icon: <Settings className="size-4" />,
-    },
+    { label: "Home",     href: "/",                                                    icon: Home },
+    { label: "Overview", href: workspaceId ? `/workspaces/${workspaceId}` : "/workspaces", icon: LayoutDashboard },
+    { label: "All Tasks",href: workspaceId ? `/workspaces/${workspaceId}/tasks` : "#", icon: CheckSquare },
+    { label: "Members",  href: workspaceId ? `/workspaces/${workspaceId}/members` : "#", icon: Users },
+    { label: "Settings", href: workspaceId ? `/workspaces/${workspaceId}/settings` : "#", icon: Settings },
   ]
 
   return (
@@ -199,12 +181,16 @@ function NavMain({ workspaceId }: { workspaceId: string }) {
       <SidebarGroupLabel>Workspace</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
-          const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href) && item.href !== `/workspaces/${workspaceId}`)
+          const active =
+            pathname === item.href ||
+            (item.href !== "/" &&
+              item.href !== `/workspaces/${workspaceId}` &&
+              pathname.startsWith(item.href))
           return (
             <SidebarMenuItem key={item.label}>
               <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
                 <Link href={item.href}>
-                  {item.icon}
+                  <item.icon />
                   <span>{item.label}</span>
                 </Link>
               </SidebarMenuButton>
@@ -216,14 +202,14 @@ function NavMain({ workspaceId }: { workspaceId: string }) {
   )
 }
 
-/* ─── Projects list ─── */
+/* ── Projects list ── */
 function NavProjects({ workspaceId }: { workspaceId: string }) {
   const pathname = usePathname()
   const { projects, isLoading } = useProjects(workspaceId)
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <div className="flex items-center justify-between px-1 py-1">
+      <div className="flex items-center justify-between">
         <SidebarGroupLabel>Projects</SidebarGroupLabel>
         <SidebarMenuAction asChild showOnHover>
           <Link href={`/workspaces/${workspaceId}/projects/new`} title="New project">
@@ -242,7 +228,7 @@ function NavProjects({ workspaceId }: { workspaceId: string }) {
           </>
         ) : projects.length === 0 ? (
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="text-sidebar-foreground/50">
+            <SidebarMenuButton asChild className="text-muted-foreground">
               <Link href={`/workspaces/${workspaceId}/projects/new`}>
                 <Plus className="size-4" />
                 <span>Create first project</span>
@@ -256,9 +242,9 @@ function NavProjects({ workspaceId }: { workspaceId: string }) {
               <SidebarMenuItem key={project.id}>
                 <SidebarMenuButton asChild isActive={active} tooltip={project.name}>
                   <Link href={`/workspaces/${workspaceId}/projects/${project.id}/board`}>
-                    <span className={`size-2 rounded-full ${projectColor(project.id)} shrink-0`} />
+                    <span className={`size-2 shrink-0 rounded-full ${projectColor(project.id)}`} />
                     <span className="truncate">{project.name}</span>
-                    <span className="ml-auto text-[10px] text-sidebar-foreground/40 font-mono">
+                    <span className="ml-auto font-mono text-[10px] text-muted-foreground/50">
                       {project.key}
                     </span>
                   </Link>
@@ -272,7 +258,7 @@ function NavProjects({ workspaceId }: { workspaceId: string }) {
   )
 }
 
-/* ─── User footer ─── */
+/* ── User footer ── */
 function NavUser() {
   const { isMobile } = useSidebar()
   const { user } = useAuthStore()
@@ -293,25 +279,26 @@ function NavUser() {
             >
               <Avatar className="size-8 rounded-lg">
                 {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name ?? ""} />}
-                <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold text-xs">
+                <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user?.name ?? "User"}</span>
-                <span className="truncate text-xs text-sidebar-foreground/60">{user?.email ?? ""}</span>
+                <span className="truncate text-xs text-muted-foreground">{user?.email ?? ""}</span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/50" />
+              <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-xl"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-2 py-2">
+              <div className="flex items-center gap-2 px-2 py-1.5">
                 <Avatar className="size-8 rounded-lg">
                   {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name ?? ""} />}
                   <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs font-semibold">
@@ -349,7 +336,7 @@ function NavUser() {
   )
 }
 
-/* ─── Root AppSidebar ─── */
+/* ── Root AppSidebar ── */
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const params = useParams()
   const { workspaces, isLoading } = useWorkspaces()
@@ -366,19 +353,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      {/* Header – logo + workspace switcher */}
-      <SidebarHeader className="gap-0 pb-0">
-        {/* Logo row */}
-        <div className="flex items-center gap-2 px-4 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:justify-center">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-extrabold shadow-lg shadow-primary/30">
-            PS
-          </div>
-          <span className="text-sm font-bold group-data-[collapsible=icon]:hidden">ProjectSphere</span>
+      {/* Header */}
+      <SidebarHeader>
+        {/* Logo */}
+        <div className="flex h-12 items-center px-3 group-data-[collapsible=icon]:justify-center">
+          <Image
+            src="/logo.svg"
+            alt="ProjectSphere"
+            width={120}
+            height={28}
+            className="h-6 w-auto group-data-[collapsible=icon]:hidden"
+          />
+          <Image
+            src="/logo-icon.svg"
+            alt="ProjectSphere"
+            width={28}
+            height={28}
+            className="hidden size-6 group-data-[collapsible=icon]:block"
+          />
         </div>
 
         {/* Workspace switcher */}
         {isLoading ? (
-          <div className="px-2 py-1">
+          <div className="px-2">
             <SidebarMenuSkeleton showIcon />
           </div>
         ) : (
@@ -390,13 +387,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
       </SidebarHeader>
 
-      {/* Content */}
+      {/* Nav */}
       <SidebarContent>
         {workspaceId && <NavMain workspaceId={workspaceId} />}
         {workspaceId && <NavProjects workspaceId={workspaceId} />}
       </SidebarContent>
 
-      {/* Footer – user */}
+      {/* Footer */}
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
