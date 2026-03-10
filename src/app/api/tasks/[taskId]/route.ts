@@ -74,7 +74,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const validatedData = updateTaskSchema.parse(body);
+    const parsed = updateTaskSchema.parse(body);
+    // Normalise nullable fields to undefined for the DB layer
+    const validatedData = {
+      ...parsed,
+      assigneeId: parsed.assigneeId ?? undefined,
+      dueDate: parsed.dueDate ?? undefined,
+    };
 
     const updatedTask = await updateTask(taskId, validatedData);
     if (!updatedTask) {

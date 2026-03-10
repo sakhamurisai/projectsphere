@@ -25,8 +25,8 @@ export function successResponse<T>(data: T, status: number = 200): NextResponse<
 export function errorResponse(error: unknown): NextResponse<ApiResponse> {
   if (error instanceof ZodError) {
     const fieldErrors: Record<string, string[]> = {};
-    error.errors.forEach((err) => {
-      const path = err.path.join(".");
+    error.issues.forEach((err) => {
+      const path = err.path.map(String).join(".");
       if (!fieldErrors[path]) {
         fieldErrors[path] = [];
       }

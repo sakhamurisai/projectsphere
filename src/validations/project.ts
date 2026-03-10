@@ -27,13 +27,13 @@ export const updateProjectSchema = z.object({
 export const addProjectMemberSchema = z.object({
   userId: z.string().min(1, "User ID is required"),
   role: z.enum(["admin", "member", "viewer"], {
-    errorMap: () => ({ message: "Please select a valid role" }),
+    error: "Please select a valid role",
   }),
 });
 
 export const updateProjectMemberRoleSchema = z.object({
   role: z.enum(["admin", "member", "viewer"], {
-    errorMap: () => ({ message: "Please select a valid role" }),
+    error: "Please select a valid role",
   }),
 });
 

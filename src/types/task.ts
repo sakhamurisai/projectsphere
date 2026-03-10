@@ -68,7 +68,7 @@ export interface SubTask {
   updatedAt: string;
 }
 
-export interface TaskDBItem {
+export interface TaskDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
   GSI1PK: string;

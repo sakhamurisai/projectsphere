@@ -46,7 +46,10 @@ export function AddMemberDialog({ open, onOpenChange, onSubmit }: AddMemberDialo
     try {
       setIsSubmitting(true);
       setError(null);
-      await onSubmit({ ...data, role });
+      const safeRole = (["admin", "member", "viewer"] as const).includes(role as "admin" | "member" | "viewer")
+        ? (role as "admin" | "member" | "viewer")
+        : "member";
+      await onSubmit({ ...data, role: safeRole });
       reset();
       setRole("member");
       onOpenChange(false);

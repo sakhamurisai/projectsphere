@@ -40,7 +40,7 @@ export interface ProjectMember {
 
 export type ProjectRole = "owner" | "admin" | "member" | "viewer";
 
-export interface ProjectDBItem {
+export interface ProjectDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
   GSI1PK: string;
@@ -57,7 +57,7 @@ export interface ProjectDBItem {
   updatedAt: string;
 }
 
-export interface ProjectMemberDBItem {
+export interface ProjectMemberDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
   GSI1PK: string;

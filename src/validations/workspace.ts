@@ -25,13 +25,13 @@ export const updateWorkspaceSchema = z.object({
 export const addMemberSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   role: z.enum(["admin", "member", "viewer"], {
-    errorMap: () => ({ message: "Please select a valid role" }),
+    error: "Please select a valid role",
   }),
 });
 
 export const updateMemberRoleSchema = z.object({
   role: z.enum(["admin", "member", "viewer"], {
-    errorMap: () => ({ message: "Please select a valid role" }),
+    error: "Please select a valid role",
   }),
 });
 

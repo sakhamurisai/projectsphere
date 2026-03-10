@@ -34,7 +34,7 @@ export interface WorkspaceMember {
 
 export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
 
-export interface WorkspaceDBItem {
+export interface WorkspaceDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
   GSI1PK: string;
@@ -48,7 +48,7 @@ export interface WorkspaceDBItem {
   updatedAt: string;
 }
 
-export interface WorkspaceMemberDBItem {
+export interface WorkspaceMemberDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
   GSI1PK: string;

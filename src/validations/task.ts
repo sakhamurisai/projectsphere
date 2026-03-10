@@ -6,11 +6,11 @@ export const createTaskSchema = z.object({
     .min(1, "Title is required")
     .max(200, "Title must be less than 200 characters"),
   description: z.string().max(5000, "Description must be less than 5000 characters").optional(),
-  status: z.enum(["todo", "in_progress", "in_review", "done"]).optional().default("todo"),
-  priority: z.enum(["low", "medium", "high", "urgent"]).optional().default("medium"),
+  status: z.enum(["todo", "in_progress", "in_review", "done"]).optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   assigneeId: z.string().optional(),
   dueDate: z.string().optional(),
-  labels: z.array(z.string()).optional().default([]),
+  labels: z.array(z.string()).optional(),
   parentTaskId: z.string().optional(),
 });
 
@@ -23,8 +23,8 @@ export const updateTaskSchema = z.object({
   description: z.string().max(5000, "Description must be less than 5000 characters").optional(),
   status: z.enum(["todo", "in_progress", "in_review", "done"]).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-  assigneeId: z.string().nullable().optional(),
-  dueDate: z.string().nullable().optional(),
+  assigneeId: z.string().optional(),
+  dueDate: z.string().optional(),
   labels: z.array(z.string()).optional(),
   order: z.number().optional(),
 });

@@ -19,7 +19,7 @@ export interface UserUpdateInput {
   avatarUrl?: string;
 }
 
-export interface UserDBItem {
+export interface UserDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
   GSI3PK: string;
