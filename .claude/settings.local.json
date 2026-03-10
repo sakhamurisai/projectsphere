@@ -21,7 +21,11 @@
       "Bash(cd \"D:/Ocean blue/projectsphere\" && npm run build 2>&1 | tail -30)",
       "Bash(find \"D:/Ocean blue/projectsphere\" -type f -name \"*.tsx\" 2>/dev/null | head -50)",
       "Bash(cd \"D:/Ocean blue/projectsphere\" && npx tsc --noEmit 2>&1 | head -20)",
-      "Bash(cd \"D:/Ocean blue/projectsphere\" && npm run build 2>&1 | grep -E \"error|warning|Error|Warning|✓|Failed\" | head -20)"
+      "Bash(cd \"D:/Ocean blue/projectsphere\" && npm run build 2>&1 | grep -E \"error|warning|Error|Warning|✓|Failed\" | head -20)",
+      "WebFetch(domain:cdn.dribbble.com)",
+      "Bash(curl -L \"https://cdn.dribbble.com/userupload/13405032/file/original-b1c5d1370e23c8c5f5a76a36add69d28.png?resize=752x&vertical=center\" -o \"/tmp/dashboard_ref.png\")",
+      "Bash(cd \"D:/Ocean blue/projectsphere\" && npx tsc --noEmit 2>&1; echo \"EXIT:$?\")",
+      "Bash(cd \"D:/Ocean blue/projectsphere\" && npm run build 2>&1 | grep -E \"Error|error|Warning|✓|Failed|✗\" | head -20)"
     ]
   }
 }
